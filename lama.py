@@ -450,9 +450,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 @app.post("/upload-pdf/")
 async def upload_pdf(file: UploadFile = File(...)):
     """
@@ -518,8 +515,8 @@ async def websocket_endpoint(websocket: WebSocket):
 #ADDED LATER
 clients = set()
 
-app.mount("/qwikdoq/static", StaticFiles(directory="qwikdoq/static"), name="static")
-html_file_path = Path(__file__).parent / "qwikdoq/index.html"
+app.mount("/qwikdoq/static", StaticFiles(directory="qwikdoq/static"), name="static") #windows: C:\Users\danie\OneDrive\Documents\Qwik\QwikDoQ\res\static\ for example
+html_file_path = Path(__file__).parent / "index.html" #windows: C:\Users\danie\OneDrive\Documents\Qwik\QwikDoQ\index.html
 with open(html_file_path, "r") as file:
     html= file.read()
 
