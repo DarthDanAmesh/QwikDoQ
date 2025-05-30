@@ -1,4 +1,4 @@
-__pycache__
+__pycache__/
 *.pyc
 *.pyo
 *~
@@ -6,7 +6,8 @@ __pycache__
 .vscode
 .idea
 *.swp
-chroma_db
-chroma_db_new
+chroma_db/
+chroma_db_new/
 history.txt
 history.txt_old
+indexed/

@@ -1,3 +1,29 @@
-('May 30, 2025 03:17 AM', 'cameroon programs in the document?', 'The document does not specifically mention any countries that Cameroon has programs for. However, there are several countries in West Africa that offer programs to help students from Cameroon, such as Senegal, Ghana, Nigeria, and Equatorial Guinea.\n\nIf you are looking for a specific country in West Africa, you might want to try using this search query: \n\n"Programs for Students from Cameroon"\n\nThis will likely bring up multiple options or countries with which you can connect.')
-('May 30, 2025 03:17 AM', 'Post graduate programs for students from cameroon', "As a language model, I can help you with any topic you need. But here are some popular postgraduate programs in Cameroon:\n\n1. University of Yaoundé: One of the oldest universities in Africa and one of the most respected in Cameroun. It offers various courses such as Business Management, Marketing, Communication Sciences, and more.\n\n2. Université de Yaoundé : This university is known for its teaching quality and research opportunities. It offers many master's degrees in fields like Economics, Psychology, Law, and Social Sciences.\n\n3. University of Ouégne: This university offers programs that cater to students who want to specialize in the field of Information Technology.\n\n4. Bocca de Yaoundé : This university is known for its innovative approach to learning and teaching. It provides a range of courses from Business Management to Communication Sciences.\n\n5. Université Lang|age - National d'Orléans: This university offers programs like Management, Social Sciences, and more.\n\n6. lycée de Bangui : This school is well-known for offering specialized courses in fields such as Law, Medicine, Psychology, and more.\n\n7. Polytechnique Fédérale de Ouégoun : This university provides courses ranging from Business Management to Communication Sciences, and other related areas.\n\n8. lycée Louis Pasteur : It offers programs like Social Sciences, Communication Sciences, Marketing, and more.\n\n9. Université de Yaoundé : As you can see, there are several postgraduate programs in Cameroon with various fields of study such as Economics, Business Management, Communication Sciences, Psychology, Social Sciences, etc.\n\nIt's important to note that the specific requirements for the programs mentioned above may differ depending on the university or institution you choose. You should contact them directly or check their website for more information.")
-('May 30, 2025 03:18 AM', 'what is the link for applying in the document?', 'As an AI language model, I don\'t have access to specific documents or applications. However, I can provide you with general guidance on how to apply for jobs and documents related to them.\n\nTo apply for a job, you typically follow these steps:\n\n1. Research the company: Look up the company\'s website or LinkedIn page to see what kind of jobs it has available. Make sure to check if they have any specific requirements like experience, qualifications, or language skills.\n2. Prepare your resume and cover letter: Write a clear and concise resume that highlights your relevant experiences and skills. Use bullet points for each point you make, including keywords such as "relevant" or "related."\n3. Customize your cover letter: Tailor your cover letter to the specific company\'s requirements. For example, if they are looking for candidates with strong communication skills, focus on how you can communicate effectively.\n4. Submit your resume and cover letter: Use a professional email address and fill out all application forms or job ads as requested by the employer. Make sure to include your contact information such as phone number, email address, and LinkedIn profile link.\n\nOnce you have submitted your application, it\'s important to keep track of any follow-up steps and deadlines, like submitting an interview, waiting for a decision, or returning the cover letter.\nSome common documents that you may need to submit are: \n- Resume\n- Cover letter\n- Proof of experience (if applicable)\n- Resume with completed applications\n- Application for interview form\n- Proof of language skills (if available)')
+[]
+[]
+[
+  {
+    "timestamp": "May 30, 2025 11:41 AM",
+    "user_message": "What university is offering Molecular Cell Biology of Infectious Diseases?",
+    "bot_response": "The University of Minnesota has a major in Molecular and Cellular Biology."
+  }
+]
+[]
+[]
+[]
+[]
+[]
+[]
+[]
+[
+  {
+    "timestamp": "May 30, 2025 12:12 PM",
+    "user_message": "What university is offering Molecular Cell Biology of Infectious Diseases ?",
+    "bot_response": "Molecular Cell Biology of Infectious Diseases is offered by the following university: \n\nUniversity of Ghana - The West Africa Centre for Cell Biology of Infections Pathogens (WACCBIP)"
+  },
+  {
+    "timestamp": "May 30, 2025 12:15 PM",
+    "user_message": "when is the start of study for Metallurgical and Materials  Engineering and where is the course offered?",
+    "bot_response": "The context does not fully answer the query for Metallurgical and Materials Engineering (MME) in South Africa (ZA). It seems to suggest that it is offered through a \"Master\" course at DAAD's Kew Campus in England. However, the information provided about starting dates and locations is based on a general idea of what is required by the course. \n\nFor further details or to request specifics, you might want to look into the specific requirements for a Master degree in MME offered through the DAAD programme at one of their Kew Campus locations. You could also look at the \"Master\" courses available from universities across South Africa and their respective admission criteria.\n\nTo address your need for specific information about where the course is offered, you might want to contact the university directly or search online for more detailed information."
+  }
+]
+[]

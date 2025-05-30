@@ -6,7 +6,7 @@ import logging
 import json
 import traceback
 from pathlib import Path
-from contextlib import asynccontextmanager
+
 import chromadb
 from chromadb import HttpClient
 from chromadb.config import Settings
@@ -32,11 +32,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-#Initialize Ollama and ChromaDB
+# Initialize Ollama and ChromaDB
 llm = AsyncClient()
 chroma_client = chromadb.PersistentClient(path="./chroma_db_new")
 
@@ -45,10 +41,11 @@ CHROMA_HOST = "localhost"
 CHROMA_PORT = 8081
 
 # Constants
-BASE_DIR = Path(__file__).parent
-UPLOAD_DIRECTORY = BASE_DIR / "uploads"
-INDEXED_DIRECTORY = BASE_DIR / "indexed"
-HTML_FILE_PATH = BASE_DIR / "home.html"
+UPLOAD_DIRECTORY = r"C:\Users\danie\OneDrive\Pictures\OSINT\TwitterAPI\Sentiment\uploads"
+#prefix r before path works with tryindexing.py file
+INDEXED_DIRECTORY = r"C:\Users\danie\OneDrive\Pictures\OSINT\TwitterAPI\Sentiment\indexed"
+os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+os.makedirs(INDEXED_DIRECTORY, exist_ok=True)
 
 
 class PDFTextExtractor:
@@ -343,6 +340,7 @@ class KnowledgeBaseIndexer:
             self.logger.error(f"Error retrieving collection info: {e}")
             return {}
 
+    
 
 class ChatbotService:
     def __init__(self, knowledge_base=None):
@@ -354,7 +352,6 @@ class ChatbotService:
         """
         self.knowledge_base = knowledge_base
         self.llm_client = AsyncClient()
-        self.logger = logging.getLogger(__name__)
     
     async def generate_response(self, query):
         """
@@ -428,205 +425,171 @@ class ChatbotService:
 # Global knowledge base
 knowledge_base_indexer = KnowledgeBaseIndexer()
 
-# Application state management
-class AppState:
-    def __init__(self):
-        self.knowledge_base_indexer = None
-        self.initialized = False
-    
-    def initialize(self):
-        """Initialize the knowledge base indexer"""
-        if not self.initialized:
-            self.knowledge_base_indexer = KnowledgeBaseIndexer()
-            self.initialized = True
-    
-    def get_knowledge_base(self) -> KnowledgeBaseIndexer:
-        """Get the knowledge base indexer, initializing if necessary"""
-        if not self.initialized:
-            self.initialize()
-        return self.knowledge_base_indexer
+# FastAPI Application commented out
 
-# Global application state
-app_state = AppState()
+#app = FastAPI()
+
+from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Automatically index documents on application startup"""
+    """
+    Automatically index documents on application startup
+    """
     try:
-        app_state.initialize()
-        indexed_count = app_state.knowledge_base_indexer.index_documents()
-        logger.info(f"Indexed {indexed_count} documents on startup")
+        document_paths = INDEXED_DIRECTORY
+        indexed_count = knowledge_base_indexer.index_documents(document_paths)
+        logging.info(f"Indexed {indexed_count} documents on startup")
+        yield
     except Exception as e:
-        logger.error(f"Failed to index documents on startup: {e}")
+        logging.error(f"Failed to index documents on startup: {e}")
+        yield
+    finally:
+        # Any cleanup code can go here
+        pass
+
+app = FastAPI(lifespan=lifespan)
+
+@app.post("/upload-pdf/")
+async def upload_pdf(file: UploadFile = File(...)):
+    """
+    Upload and process PDF file
+    """
+    # Save uploaded file
+    file_location = os.path.join(UPLOAD_DIRECTORY, file.filename)
+    with open(file_location, "wb+") as file_object:
+        file_object.write(await file.read())
     
-    yield
+    # Extract text from PDF
+    extracted_pages = PDFTextExtractor.extract_text_from_pdf(
+        file_location, 
+        INDEXED_DIRECTORY
+    )
     
-    # Cleanup code (if needed)
-    logger.info("Application shutting down")
+    # Index the extracted documents
+    global knowledge_base_indexer
+    knowledge_base_indexer.index_documents(
+        extracted_pages, 
+        document_name=file.filename
+    )
+    
+    return {
+        "status": "success", 
+        "message": f"PDF processed: {file.filename}",
+        "pages_extracted": len(extracted_pages)
+    }
 
-app = FastAPI(lifespan=lifespan, title="RAG Chatbot API", version="1.0.0")
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    conversation = []
+    
+    # Use global knowledge base
+    global knowledge_base_indexer
+    chatbot = ChatbotService(knowledge_base_indexer)
+    
+    while True:
+        # Receive user message
+        data = await websocket.receive_text()
+        chat_time = str(datetime.now())
 
-
-@app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    """Upload and process PDF file"""
-    try:
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            return JSONResponse(
-                content={"status": "error", "message": "Only PDF files are supported"},
-                status_code=400
-            )
-        
-        # Save uploaded file
-        file_location = UPLOAD_DIRECTORY / file.filename
-        with open(file_location, "wb") as file_object:
-            content = await file.read()
-            file_object.write(content)
-        
-        # Extract text from PDF
         try:
-            extracted_pages = PDFTextExtractor.extract_text_from_pdf(
-                str(file_location), 
-                str(INDEXED_DIRECTORY)
-            )
-        except Exception as extract_error:
-            return JSONResponse(
-                content={
-                    "status": "error", 
-                    "message": f"Failed to extract text from PDF: {str(extract_error)}"
-                },
-                status_code=400
-            )
+            # Generate response
+            response = await chatbot.generate_response(data)
+            
+            # Persisting the chat
+            conversation.append((chat_time, data, response))
+            
+            # Send response back
+            await websocket.send_text(response)
         
-        # Index the extracted documents
-        try:
-            knowledge_base = app_state.get_knowledge_base()
-            indexed_count = knowledge_base.index_documents(
-                document_paths=str(INDEXED_DIRECTORY), 
-                document_name=file.filename
-            )
-            
-            return JSONResponse({
-                "status": "success", 
-                "message": f"PDF processed successfully: {file.filename}",
-                "pages_extracted": len(extracted_pages),
-                "documents_indexed": indexed_count,
-                "pages": list(extracted_pages.keys())
-            })
-            
-        except Exception as index_error:
-            return JSONResponse(
-                content={
-                    "status": "error", 
-                    "message": f"Failed to index document: {str(index_error)}"
-                },
-                status_code=400
-            )
-    
-    except Exception as e:
-        logger.error(f"Unexpected error processing upload: {e}")
-        return JSONResponse(
-            content={
-                "status": "error", 
-                "message": f"Unexpected error processing upload: {str(e)}"
-            },
-            status_code=500
-        )
+        except Exception as e:
+            await websocket.send_text(f"Error processing your request: {str(e)}")
+        
+        with open("history.txt", 'a') as f:
+            f.write(str(conversation) + "\n")
+
+
 
 
 #ADDED LATER
 clients = set()
 
 #app.mount("/qwikdoq/static", StaticFiles(directory="qwikdoq/static"), name="static") #windows: C:\Users\danie\OneDrive\Documents\Qwik\QwikDoQ\res\static\ for example
-# Load HTML content
-try:
-    with open(HTML_FILE_PATH, "r", encoding="utf-8") as file:
-        html_content = file.read()
-except FileNotFoundError:
-    html_content = "<html><body><h1>Home page not found</h1></body></html>"
-    logger.warning(f"HTML file not found at {HTML_FILE_PATH}")
+html_file_path = Path(__file__).parent / "home.html" #windows: C:\Users\danie\OneDrive\Documents\Qwik\QwikDoQ\index.html
+with open(html_file_path, "r") as file:
+    html= file.read()
 
 
 @app.get("/")
 async def get():
-    return HTMLResponse(html_content)
+    return HTMLResponse(html)
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time chat"""
     await websocket.accept()
     conversation = []
     
-    # Initialize chatbot with knowledge base
+    # Use global knowledge base (if available)
+    global knowledge_base_indexer
+    
+    # Initialize chatbot with optional knowledge base
     try:
-        knowledge_base = app_state.get_knowledge_base()
-        chatbot = ChatbotService(knowledge_base)
+        chatbot = ChatbotService(knowledge_base_indexer)
     except Exception as init_error:
-        logger.error(f"Error initializing ChatbotService: {init_error}")
+        print(f"Error initializing ChatbotService: {init_error}")
+        # Fallback to ChatbotService without knowledge base
         chatbot = ChatbotService()
     
-    try:
-        while True:
+    while True:
+        try:
             # Receive user message
             data = await websocket.receive_text()
-            chat_time = datetime.now()
+            chat_time = str(datetime.now())
 
             # Generate response
             response = await chatbot.generate_response(data)
             
-            # Store conversation
-            conversation.append({
-                "timestamp": chat_time.strftime('%B %d, %Y %I:%M %p'),
-                "user_message": data,
-                "bot_response": response
-            })
+            # Persisting the chat
+            conversation.append((chat_time.strftime('%B %m, %Y %I:%M %p'), data, response))
             
             # Send response back
             await websocket.send_text(response)
-    
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected")
-    except Exception as e:
-        error_message = f"Error processing your request: {str(e)}"
-        logger.error(error_message)
-        try:
+        
+        except WebSocketDisconnect:
+            print("WebSocket disconnected")
+            break
+        except Exception as e:
+            error_message = f"Error processing your request: {str(e)}"
+            print(error_message)
             await websocket.send_text(error_message)
-        except:
-            pass  # Connection might be closed
-    
-    finally:
-        # Log conversation (with error handling)
+        
+        # Optionally log conversation (with error handling)
         try:
-            with open("history.txt", 'a', encoding='utf-8') as f:
-                json.dump(conversation, f, indent=2)
-                f.write('\n')
+            with open("history.txt", 'a') as f:
+                print(conversation, end="", file=f)
         except Exception as log_error:
-            logger.error(f"Error logging conversation: {log_error}")
+            print(f"Error logging conversation: {log_error}")
+
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload and process PDF file"""
     try:
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            return JSONResponse(
-                content={"status": "error", "message": "Only PDF files are supported"},
-                status_code=400
-            )
+        # Ensure upload directory exists
+        os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+        os.makedirs(INDEXED_DIRECTORY, exist_ok=True)
         
         # Save uploaded file
-        file_location = UPLOAD_DIRECTORY / file.filename
-        with open(file_location, "wb") as file_object:
-            content = await file.read()
-            file_object.write(content)
+        file_location = os.path.join(UPLOAD_DIRECTORY, file.filename)
+        with open(file_location, "wb+") as file_object:
+            file_object.write(await file.read())
         
         # Extract text from PDF
         try:
             extracted_pages = PDFTextExtractor.extract_text_from_pdf(
-                str(file_location), 
-                str(INDEXED_DIRECTORY)
+                file_location, 
+                INDEXED_DIRECTORY
             )
         except Exception as extract_error:
             return JSONResponse(
@@ -638,21 +601,13 @@ async def upload_file(file: UploadFile = File(...)):
             )
         
         # Index the extracted documents
+        global knowledge_base_indexer
         try:
-            knowledge_base = app_state.get_knowledge_base()
-            indexed_count = knowledge_base.index_documents(
-                document_paths=str(INDEXED_DIRECTORY), 
+            # Pass the INDEXED_DIRECTORY instead of extracted_pages
+            knowledge_base_indexer.index_documents(
+                document_paths=INDEXED_DIRECTORY, 
                 document_name=file.filename
             )
-            
-            return JSONResponse({
-                "status": "success", 
-                "message": f"PDF processed successfully: {file.filename}",
-                "pages_extracted": len(extracted_pages),
-                "documents_indexed": indexed_count,
-                "pages": list(extracted_pages.keys())
-            })
-            
         except Exception as index_error:
             return JSONResponse(
                 content={
@@ -661,9 +616,15 @@ async def upload_file(file: UploadFile = File(...)):
                 },
                 status_code=400
             )
+        
+        return JSONResponse({
+            "status": "success", 
+            "message": f"PDF processed successfully: {file.filename}",
+            "pages_extracted": len(extracted_pages),
+            "pages": list(extracted_pages.keys())
+        })
     
     except Exception as e:
-        logger.error(f"Unexpected error processing upload: {e}")
         return JSONResponse(
             content={
                 "status": "error", 
@@ -678,12 +639,13 @@ async def upload_file(file: UploadFile = File(...)):
 async def get_pdf(file_name: str):
     # Ensure file_name is sanitized to prevent directory traversal
     safe_file_name = os.path.basename(file_name)
-    file_path = UPLOAD_DIRECTORY / safe_file_name
+    file_path = os.path.join(UPLOAD_DIRECTORY, safe_file_name)
     
-    if not file_path.is_file():
+    # More robust path checking
+    if not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail=f"File {safe_file_name} not found")
     
-    return FileResponse(path=str(file_path), filename=safe_file_name)
+    return FileResponse(path=file_path, filename=safe_file_name)
 
 
 

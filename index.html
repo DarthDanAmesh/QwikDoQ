@@ -3,553 +3,323 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QwikDoQ - Document Intelligence</title>
+    <title>Document Viewer & Chat</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        :root {
-            --primary: #4F46E5;
-            --secondary: #10B981;
-            --dark: #1F2937;
-            --light: #F9FAFB;
-        }
-        
         /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
-            height: 8px;
         }
         ::-webkit-scrollbar-track {
             background: #f1f1f1;
-            border-radius: 10px;
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 10px;
+            background: #888;
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #a1a1a1;
+            background: #555;
         }
-
-        /* Animation */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+    
+        /* Improved scrollbar for dark elements */
+        .dark-scroll::-webkit-scrollbar-track {
+            background: #e5e7eb;
         }
-        
-        .fade-in {
-            animation: fadeIn 0.3s ease-out forwards;
+        .dark-scroll::-webkit-scrollbar-thumb {
+            background: #9ca3af;
         }
-        
-        /* PDF viewer */
-        .pdf-viewer {
-            height: calc(100vh - 250px);
+    
+        /* Chat styling */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 300px;
+            border-top: 1px solid #e5e7eb;
+            background-color: white;
         }
-        
-        /* Chat bubbles */
+        .messages-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .input-area {
+            display: flex;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #e5e7eb;
+        }
+    
+        /* Message bubbles */
+        .message {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
         .user-message {
-            background-color: var(--primary);
+            background-color: #3b82f6;
             color: white;
-            border-radius: 18px 18px 4px 18px;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
         }
-        
         .bot-message {
-            background-color: #EDF2F7;
-            color: var(--dark);
-            border-radius: 18px 18px 18px 4px;
-        }
-        
-        /* Loading indicator */
-        .typing-indicator span {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background-color: #9CA3AF;
-            border-radius: 50%;
-            margin: 0 2px;
-            animation: bounce 1.4s infinite ease-in-out;
-        }
-        
-        .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        
-        .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-        
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-5px); }
+            background-color: #f3f4f6;
+            color: #111827;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
         }
     </style>
 </head>
-<body class="bg-gray-50 font-sans antialiased">
-    <!-- Main Layout -->
-    <div class="flex flex-col h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-sm py-3 px-6 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <button id="menu-toggle" class="text-gray-600 hover:text-indigo-600 focus:outline-none">
-                    <i class="bi bi-list text-2xl"></i>
+<body class="bg-gray-100 h-screen flex flex-col">
+    
+    <header class="bg-white shadow-sm p-4 flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-10">
+        <div class="flex items-center w-full md:w-auto">
+            <button id="sidebar-toggle" class="mr-4 text-gray-700 hover:text-blue-600 transition-colors">
+                <i class="bi bi-list text-2xl"></i>
+            </button>
+            <div id="breadcrumbs" class="text-gray-800 font-medium text-sm md:text-base">Home</div>
+        </div>
+        
+        <div class="progress-bar-wrapper w-full max-w-2xl bg-gray-100 rounded-full h-2.5">
+            <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-blue-400 h-2.5 rounded-full transition-all duration-300" style="width: 0%;"></div>
+        </div>
+        
+        <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+            <input type="file" id="file-upload" class="hidden" accept=".pdf,.doc,.docx,.txt">
+            <button id="upload-btn" class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center shadow-sm">
+                <i class="bi bi-upload mr-2"></i>Upload
+            </button>
+        </div>
+    </header>
+    
+    <div class="flex flex-grow overflow-hidden h-[calc(100vh-180px)]">
+        <!-- Left Sidebar -->
+        <aside id="left-sidebar" class="w-64 bg-white border-r transition-all duration-300 transform -translate-x-full md:translate-x-0 fixed md:static h-full z-20">
+            <div class="p-4 h-full flex flex-col">
+                <input type="text" id="search-box" placeholder="Search sections..." 
+                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent mb-4">
+                
+                <ul id="tabs" class="flex-1 overflow-y-auto space-y-1">
+                    <!-- Dynamically populated tabs -->
+                </ul>
+    
+                <div id="search-results" class="mt-2 space-y-1 text-sm text-gray-600 hidden">
+                    <!-- Search results will appear here -->
+                </div>
+            </div>
+        </aside>
+    
+        <!-- Main Content Area -->
+        <main id="content-area" class="flex-grow bg-gray-50 overflow-auto relative">
+            <div id="loading-spinner" class="absolute inset-0 z-50 flex items-center justify-center bg-white bg-opacity-80 hidden">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+            </div>
+    
+            <div id="document-content" class="p-6 max-w-4xl mx-auto prose prose-blue">
+                <div class="text-center py-12 text-gray-500">
+                    <i class="bi bi-file-earmark-text text-4xl mb-3"></i>
+                    <h2 class="text-xl font-medium">Welcome to your workspace</h2>
+                    <p class="mt-2">Select a section or upload a file to get started</p>
+                </div>
+            </div>
+    
+            <!-- PDF Preview -->
+            <div class="pdf-preview p-4 hidden">
+                <object data="" type="application/pdf" class="w-full h-[calc(100vh-300px)] rounded-lg border shadow-sm">
+                    <div class="p-8 text-center text-gray-500">
+                        <i class="bi bi-file-earmark-pdf text-4xl mb-3"></i>
+                        <p>Your browser does not support PDF preview.</p>
+                    </div>
+                </object>
+            </div>
+        </main>
+    
+        <!-- Right Sidebar - File Preview/Details -->
+        <aside id="right-sidebar" class="w-64 bg-white border-l hidden lg:block p-4 overflow-auto h-full">
+            <div id="file-preview-section" class="h-full">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="bi bi-info-circle mr-2"></i> File Details
+                </h3>
+                <div id="file-details" class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="bi bi-file-earmark-text text-3xl mb-2"></i>
+                        <p>No file selected</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- Chat Section -->
+    <div class="chat-container border-t bg-white h-60 fixed bottom-0 left-0 right-0 md:relative md:h-auto">
+        <div class="flex flex-col h-full">
+            <div class="flex items-center justify-between p-3 border-b bg-gray-50">
+                <h3 class="font-medium flex items-center">
+                    <i class="bi bi-chat-left-text mr-2 text-blue-500"></i> Assistant
+                </h3>
+                <button class="text-gray-500 hover:text-gray-700 md:hidden" id="chat-toggle">
+                    <i class="bi bi-chevron-down"></i>
                 </button>
-                <h1 class="text-xl font-bold text-indigo-600">QwikDoQ</h1>
-                <div id="breadcrumbs" class="text-sm text-gray-600 hidden md:flex items-center">
-                    <span class="text-gray-400">Home</span>
+            </div>
+            
+            <div id="messages" class="messages-area flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- Chat messages will be dynamically added here -->
+                <div class="text-center text-gray-500 py-4">
+                    <p>Ask me anything about your documents</p>
                 </div>
             </div>
             
-            <div class="flex items-center space-x-4">
-                <div class="relative hidden md:block w-64">
-                    <input type="text" placeholder="Search documents..." 
-                        class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-                    <i class="bi bi-search absolute left-3 top-2.5 text-gray-400"></i>
-                </div>
-                
-                <div class="flex space-x-2">
-                    <input type="file" id="file-upload" class="hidden" accept=".pdf,.doc,.docx,.txt,.csv">
-                    <button id="upload-btn" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-                        <i class="bi bi-upload"></i>
-                        <span class="hidden md:inline">Upload</span>
-                    </button>
-                </div>
+            <div class="input-area flex p-3 bg-gray-50 border-t">
+                <input type="text" id="messageText" placeholder="Type your message..." 
+                    class="flex-grow px-4 py-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent">
+                <button onclick="sendMessage(event)" 
+                    class="bg-blue-500 text-white px-4 py-2 rounded-r-lg hover:bg-blue-600 transition-colors">
+                    <i class="bi bi-send"></i>
+                </button>
             </div>
-        </header>
-
-        <!-- Main Content -->
-        <div class="flex flex-1 overflow-hidden">
-            <!-- Sidebar -->
-            <aside id="sidebar" class="w-64 bg-white border-r shadow-sm transform -translate-x-full md:translate-x-0 transition-transform duration-300 fixed md:relative h-full z-10">
-                <div class="p-4 h-full flex flex-col">
-                    <div class="mb-6">
-                        <h2 class="text-lg font-semibold text-gray-800 mb-2">Documents</h2>
-                        <ul id="document-list" class="space-y-1">
-                            <!-- Documents will be dynamically added here -->
-                            <li class="text-gray-500 py-1">No documents yet</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="mt-auto">
-                        <div class="p-3 bg-gray-100 rounded-lg">
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600">Storage</span>
-                                <span class="font-medium">0% used</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div id="storage-bar" class="bg-indigo-600 h-2 rounded-full" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-
-            <!-- Document Viewer -->
-            <main class="flex-1 overflow-auto bg-white">
-                <div id="document-viewer" class="h-full p-6">
-                    <div class="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                        <i class="bi bi-file-earmark-text text-5xl mb-4"></i>
-                        <h3 class="text-xl font-medium mb-2">No document selected</h3>
-                        <p class="max-w-md">Upload a document or select one from the sidebar to view its contents</p>
-                        <button id="upload-cta" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-                            Upload Document
-                        </button>
-                    </div>
-                    
-                    <!-- PDF Viewer Container -->
-                    <div id="pdf-container" class="hidden pdf-viewer">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 id="document-title" class="text-lg font-semibold"></h3>
-                            <div class="flex space-x-2">
-                                <button class="p-2 rounded-full hover:bg-gray-100">
-                                    <i class="bi bi-download"></i>
-                                </button>
-                                <button class="p-2 rounded-full hover:bg-gray-100">
-                                    <i class="bi bi-printer"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="border rounded-lg overflow-hidden shadow-sm">
-                            <object id="pdf-viewer" data="" type="application/pdf" class="w-full h-full">
-                                <div class="p-8 text-center">
-                                    <p class="text-gray-500">Your browser doesn't support PDF preview. 
-                                        <a href="#" id="pdf-download-link" class="text-indigo-600 hover:underline">Download instead</a>
-                                    </p>
-                                </div>
-                            </object>
-                        </div>
-                    </div>
-                    
-                    <!-- Text Content Container -->
-                    <div id="text-container" class="hidden">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 id="text-title" class="text-lg font-semibold"></h3>
-                            <div class="flex space-x-2">
-                                <button class="p-2 rounded-full hover:bg-gray-100">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="prose max-w-none">
-                            <pre id="text-content" class="whitespace-pre-wrap font-sans"></pre>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            <!-- Chat Panel -->
-            <aside id="chat-panel" class="w-80 bg-gray-50 border-l shadow-sm flex flex-col">
-                <div class="p-4 border-b">
-                    <h2 class="text-lg font-semibold flex items-center">
-                        <i class="bi bi-robot mr-2"></i>
-                        Document Assistant
-                    </h2>
-                </div>
-                
-                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
-                    <div class="bot-message fade-in p-4 max-w-xs md:max-w-md">
-                        <p>Hello! I'm your document assistant. Ask me anything about your uploaded documents.</p>
-                    </div>
-                </div>
-                
-                <div class="p-4 border-t bg-white">
-                    <div class="relative">
-                        <textarea id="chat-input" rows="2" placeholder="Ask about your document..." 
-                            class="w-full px-4 py-3 pr-12 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"></textarea>
-                        <button id="send-button" class="absolute right-3 bottom-3 text-indigo-600 hover:text-indigo-800 focus:outline-none">
-                            <i class="bi bi-send-fill text-xl"></i>
-                        </button>
-                    </div>
-                    <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
-                        <div id="typing-indicator" class="typing-indicator hidden">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                        <div>
-                            <button id="clear-chat" class="text-gray-500 hover:text-gray-700">
-                                <i class="bi bi-trash mr-1"></i> Clear
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-        </div>
-    </div>
-
-    <!-- Mobile Navigation -->
-    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
-        <div class="flex justify-around">
-            <button class="p-4 text-gray-600 hover:text-indigo-600">
-                <i class="bi bi-files text-xl"></i>
-            </button>
-            <button class="p-4 text-gray-600 hover:text-indigo-600">
-                <i class="bi bi-search text-xl"></i>
-            </button>
-            <button class="p-4 text-indigo-600">
-                <i class="bi bi-chat-square-text-fill text-xl"></i>
-            </button>
         </div>
     </div>
 
     <script>
-        // Global variables
+        // Global variables and WebSocket setup
         let ws;
-        let reconnectAttempts = 0;
-        const MAX_RECONNECT_ATTEMPTS = 5;
-        const RECONNECT_DELAY = 3000; // 3 seconds
-        let pdfjsLib = null; // pdf.js library (loaded dynamically)
-        let currentDocument = null;
-        let documents = [];
-    
-        // DOM elements
         const fileUpload = document.getElementById('file-upload');
         const uploadBtn = document.getElementById('upload-btn');
-        const uploadCta = document.getElementById('upload-cta');
-        const chatMessages = document.getElementById('chat-messages');
-        const chatInput = document.getElementById('chat-input');
-        const sendButton = document.getElementById('send-button');
-        const clearChat = document.getElementById('clear-chat');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const documentList = document.getElementById('document-list');
-        const storageBar = document.getElementById('storage-bar');
-        const pdfContainer = document.getElementById('pdf-container');
-        const textContainer = document.getElementById('text-container');
-        const pdfViewer = document.getElementById('pdf-viewer');
-        const textContent = document.getElementById('text-content');
-        const documentTitle = document.getElementById('document-title');
-        const textTitle = document.getElementById('text-title');
-    
-        // Load pdf.js dynamically
-        async function loadPdfJs() {
-            if (!pdfjsLib) {
-                pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js');
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-            }
-            return pdfjsLib;
-        }
-    
-        // Initialize WebSocket connection
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageText');
+        const fileDetailsSection = document.getElementById('file-details');
+        const pdfPreview = document.querySelector('.pdf-preview object');
+
+        // Websocket Connection
         function connectWebSocket() {
-            try {
-                ws = new WebSocket('ws://localhost:8000/ws');
-                ws.onopen = () => {
-                    console.log('WebSocket connection established');
-                    reconnectAttempts = 0;
-                    addSystemMessage('Connected to document assistant');
-                };
-                ws.onmessage = (event) => {
-                    typingIndicator.classList.add('hidden');
-                    try {
-                        const data = JSON.parse(event.data);
-                        addBotMessage(data.message || data);
-                    } catch {
-                        addBotMessage(event.data);
-                    }
-                };
-                ws.onclose = () => {
-                    console.log('WebSocket connection closed');
-                    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                        const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
-                        addSystemMessage(`Connection lost. Reconnecting in ${delay / 1000} seconds...`);
-                        setTimeout(connectWebSocket, delay);
-                        reconnectAttempts++;
-                    } else {
-                        addSystemMessage('Connection failed. Please refresh the page.');
-                    }
-                };
-                ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    addSystemMessage('Connection error occurred');
-                };
-            } catch (error) {
-                console.error('WebSocket initialization error:', error);
-                addSystemMessage('Failed to establish connection');
-            }
-        }
-    
-        // Message handling functions
-        function addSystemMessage(text) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'text-center text-xs text-gray-500 my-2 fade-in';
-            messageDiv.textContent = text;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-    
-        function addUserMessage(text) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'user-message fade-in p-4 max-w-xs md:max-w-md ml-auto';
-            messageDiv.innerHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-    
-        function addBotMessage(text) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'bot-message fade-in p-4 max-w-xs md:max-w-md';
-            // Basic markdown-like formatting
-            const formattedText = text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code class="bg-gray-200 px-1 rounded">$1</code>')
-                .replace(/\n/g, '<br>');
-            messageDiv.innerHTML = `<p>${formattedText}</p>`;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-    
-        // File upload handler
-        async function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-    
-            const viewer = document.getElementById('document-viewer');
-            const emptyState = viewer?.querySelector('.text-center');
-            if (emptyState) {
-                emptyState.innerHTML = `
-                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-                    <p>Processing ${file.name}...</p>
-                `;
-            }
-    
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                const response = await fetch('/upload/', { method: 'POST', body: formData });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const result = await response.json();
-    
-                if (result.status === 'success') {
-                    addDocumentToList(file, result.extracted);
-                    if (file.type === 'application/pdf') {
-                        await showPdfPreview(file);
-                    } else {
-                        await showTextPreview(file);
-                    }
-                    addSystemMessage(`Uploaded ${file.name} successfully`);
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-                addSystemMessage(`Failed to upload ${file.name}: ${error.message}`);
-            } finally {
-                if (emptyState) emptyState.classList.add('hidden');
-                fileUpload.value = '';
-            }
-        }
-    
-        // Send message
-        function sendMessage() {
-            const messageText = chatInput.value.trim();
-            if (!messageText) return;
-    
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                typingIndicator.classList.remove('hidden');
-                try {
-                    ws.send(messageText);
-                    addUserMessage(messageText);
-                    chatInput.value = '';
-                } catch (error) {
-                    console.error('Error sending message:', error);
-                    typingIndicator.classList.add('hidden');
-                    addSystemMessage('Failed to send message');
-                }
-            } else {
-                addSystemMessage('Connection not ready. Please wait...');
-                connectWebSocket();
-            }
-        }
-    
-        // Clear chat history
-        function clearChatHistory() {
-            chatMessages.innerHTML = '';
-            addSystemMessage('Chat history cleared');
-        }
-    
-        // Document management functions
-        function addDocumentToList(file, extracted) {
-            documents.push({ file, sections: extracted });
-            if (!documentList) return;
-    
-            const documentItem = document.createElement('li');
-            documentItem.className = 'flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg cursor-pointer';
-            documentItem.innerHTML = `
-                <div class="flex items-center truncate">
-                    <i class="bi ${getFileIcon(file.type)} text-indigo-600 mr-3"></i>
-                    <span class="truncate">${file.name}</span>
-                </div>
-                <span class="text-xs text-gray-500">Just now</span>
-            `;
-            documentItem.addEventListener('click', async () => {
-                currentDocument = file;
-                if (file.type === 'application/pdf') {
-                    await showPdfPreview(file);
-                } else {
-                    await showTextPreview(file);
-                }
-            });
-            documentList.innerHTML = ''; // Clear existing list
-            documentList.appendChild(documentItem);
-            // Update storage bar (simulated)
-            if (storageBar) storageBar.style.width = `${Math.min(100, documents.length * 10)}%`;
-        }
-    
-        function getFileIcon(fileType) {
-            if (fileType === 'application/pdf') return 'bi-file-earmark-pdf';
-            if (fileType.includes('csv')) return 'bi-file-earmark-excel';
-            if (fileType.includes('excel')) return 'bi-file-earmark-excel';
-            if (fileType.includes('word')) return 'bi-file-earmark-word';
-            return 'bi-file-earmark-text';
-        }
-    
-        async function showPdfPreview(file) {
-            if (!pdfContainer) return;
-            textContainer.classList.add('hidden');
-            pdfContainer.classList.remove('hidden');
-            documentTitle.textContent = file.name;
-    
-            try {
-                const pdfjs = await loadPdfJs();
-                const pdfData = await file.arrayBuffer();
-                const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
-                const canvas = document.createElement('canvas');
-                pdfViewer.replaceChildren(canvas);
-                const context = canvas.getContext('2d');
-                const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 1.5 });
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                await page.render({ canvasContext: context, viewport }).promise;
-            } catch (error) {
-                console.error('PDF rendering failed:', error);
-                addSystemMessage('Failed to render PDF preview');
-                pdfViewer.innerHTML = '<p class="p-8 text-center text-gray-500">Error loading PDF preview.</p>';
-            }
-        }
-    
-        async function showTextPreview(file) {
-            if (!textContainer) return;
-            pdfContainer.classList.add('hidden');
-            textContainer.classList.remove('hidden');
-            textTitle.textContent = file.name;
-    
-            try {
-                const response = await fetch(`/file/${file.name}`);
-                if (!response.ok) throw new Error('Failed to fetch text content');
-                const text = await response.text();
-                textContent.textContent = text;
-            } catch (error) {
-                console.error('Text preview failed:', error);
-                textContent.textContent = 'Error loading text content.';
-                addSystemMessage('Failed to load text preview');
-            }
-        }
-    
-        // Debounce function for input events
-        function debounce(func, wait) {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func(...args), wait);
+            ws = new WebSocket("ws://localhost:8000/ws");
+            
+            ws.onopen = function() {
+                console.log('WebSocket connection established');
+            };
+
+            ws.onmessage = function(event) {
+                const message = document.createElement('div');
+                message.classList.add('p-2', 'bg-gray-100', 'rounded', 'mb-2', 'text-left');
+                message.innerHTML = `<strong>Chattie:</strong> ${event.data}`;
+                messages.appendChild(message);
+                messages.scrollTop = messages.scrollHeight;
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket connection closed');
+                // Attempt to reconnect after a delay
+                setTimeout(connectWebSocket, 2000);
             };
         }
-    
-        // Initialize application
+
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             connectWebSocket();
-            // Event listeners
-            if (uploadBtn) uploadBtn.addEventListener('click', () => fileUpload.click());
-            if (uploadCta) uploadCta.addEventListener('click', () => fileUpload.click());
-            fileUpload.addEventListener('change', handleFileUpload);
-            if (sendButton) sendButton.addEventListener('click', sendMessage);
-            if (clearChat) clearChat.addEventListener('click', clearChatHistory);
-            chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
+            
+            // Upload button click triggers file input
+            uploadBtn.addEventListener('click', () => fileUpload.click());
+
+            // File upload handler
+            fileUpload.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Update file details section
+                fileDetailsSection.innerHTML = `
+                    <p><strong>Name:</strong> ${file.name}</p>
+                    <p><strong>Type:</strong> ${file.type}</p>
+                    <p><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</p>
+                `;
+
+                // Preview PDF if applicable
+                if (file.type === 'application/pdf') {
+                    pdfPreview.data = URL.createObjectURL(file);
+                }
+
+                // Upload file
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/upload/', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    console.log('Upload successful:', result);
+                } catch (error) {
+                    console.error('Upload failed:', error);
                 }
             });
-            // Mobile menu toggle
-            const menuToggle = document.getElementById('menu-toggle');
-            if (menuToggle) {
-                menuToggle.addEventListener('click', () => {
-                    document.getElementById('sidebar').classList.toggle('-translate-x-full');
-                });
+        });
+
+        // Send message function
+        function sendMessage(event) {
+            event.preventDefault();
+            const messageText = messageInput.value.trim();
+            
+            if (messageText && ws.readyState === WebSocket.OPEN) {
+                // Send message via WebSocket
+                ws.send(messageText);
+
+                // Display sent message
+                const message = document.createElement('div');
+                message.classList.add('p-2', 'bg-blue-100', 'rounded', 'mb-2', 'text-right');
+                message.innerHTML = `<strong>You:</strong> ${messageText}`;
+                messages.appendChild(message);
+                
+                // Clear input and scroll
+                messageInput.value = '';
+                messages.scrollTop = messages.scrollHeight;
             }
-            // Debounced search (if search input exists)
-            const searchInput = document.querySelector('input[placeholder="Search documents..."]');
-            if (searchInput) {
-                searchInput.addEventListener('input', debounce((e) => {
-                    const query = e.target.value.toLowerCase();
-                    documentList.innerHTML = '';
-                    documents
-                        .filter(doc => doc.file.name.toLowerCase().includes(query))
-                        .forEach(doc => addDocumentToList(doc.file, doc.sections));
-                }, 300));
-            }
+        }
+
+        // Sections for dynamic content
+        const sections = [
+            { id: 1, title: 'Introduction', content: 'Welcome to the comprehensive document viewer.' },
+            { id: 2, title: 'Chapter 1', content: 'Detailed information about Chapter 1.' },
+            { id: 3, title: 'Chapter 2', content: 'In-depth exploration of Chapter 2.' }
+        ];
+
+        // Populate tabs dynamically
+        const tabsContainer = document.getElementById('tabs');
+        sections.forEach(section => {
+            const tab = document.createElement('li');
+            tab.textContent = section.title;
+            tab.classList.add('cursor-pointer', 'px-3', 'py-2', 'hover:bg-gray-100', 'rounded');
+            tab.addEventListener('click', () => loadSection(section));
+            tabsContainer.appendChild(tab);
+        });
+
+        // Load section content
+        function loadSection(section) {
+            const contentArea = document.getElementById('document-content');
+            contentArea.innerHTML = section.content;
+            document.getElementById('breadcrumbs').textContent = section.title;
+        }
+
+        // Search functionality
+        document.getElementById('search-box').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const searchResults = document.getElementById('search-results');
+            searchResults.innerHTML = '';
+
+            const filteredSections = sections.filter(section => 
+                section.title.toLowerCase().includes(query)
+            );
+
+            filteredSections.forEach(section => {
+                const resultItem = document.createElement('div');
+                resultItem.textContent = section.title;
+                resultItem.classList.add('cursor-pointer', 'p-2', 'hover:bg-gray-100', 'rounded');
+                resultItem.addEventListener('click', () => loadSection(section));
+                searchResults.appendChild(resultItem);
+            });
         });
     </script>
-    
 </body>
 </html>
