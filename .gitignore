@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+*~
+.DS_Store
+.vscode
+.idea
+*.swp
+chroma_db
+chroma_db_new
+history.txt
+history.txt_old
