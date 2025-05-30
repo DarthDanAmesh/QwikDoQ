@@ -257,7 +257,10 @@
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
         const RECONNECT_DELAY = 3000; // 3 seconds
-        
+        let pdfjsLib = null; // pdf.js library (loaded dynamically)
+        let currentDocument = null;
+        let documents = [];
+    
         // DOM elements
         const fileUpload = document.getElementById('file-upload');
         const uploadBtn = document.getElementById('upload-btn');
@@ -269,56 +272,58 @@
         const typingIndicator = document.getElementById('typing-indicator');
         const documentList = document.getElementById('document-list');
         const storageBar = document.getElementById('storage-bar');
-        const storageText = storageBar?.nextElementSibling;
+        const pdfContainer = document.getElementById('pdf-container');
+        const textContainer = document.getElementById('text-container');
+        const pdfViewer = document.getElementById('pdf-viewer');
+        const textContent = document.getElementById('text-content');
+        const documentTitle = document.getElementById('document-title');
+        const textTitle = document.getElementById('text-title');
     
-        // Document state
-        let currentDocument = null;
-        let documents = [];
+        // Load pdf.js dynamically
+        async function loadPdfJs() {
+            if (!pdfjsLib) {
+                pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js');
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            }
+            return pdfjsLib;
+        }
     
         // Initialize WebSocket connection
         function connectWebSocket() {
             try {
-                ws = new WebSocket("ws://localhost:8000/ws");
-                
-                ws.onopen = function() {
+                ws = new WebSocket('ws://localhost:8000/ws');
+                ws.onopen = () => {
                     console.log('WebSocket connection established');
                     reconnectAttempts = 0;
-                    addSystemMessage("Connected to document assistant");
+                    addSystemMessage('Connected to document assistant');
                 };
-    
-                ws.onmessage = function(event) {
+                ws.onmessage = (event) => {
                     typingIndicator.classList.add('hidden');
                     try {
                         const data = JSON.parse(event.data);
-                        if (data.error) {
-                            addSystemMessage(`Error: ${data.error}`);
-                        } else {
-                            addBotMessage(data.message || data);
-                        }
-                    } catch (e) {
+                        addBotMessage(data.message || data);
+                    } catch {
                         addBotMessage(event.data);
                     }
                 };
-    
-                ws.onclose = function(event) {
-                    console.log('WebSocket connection closed', event.code, event.reason);
+                ws.onclose = () => {
+                    console.log('WebSocket connection closed');
                     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
                         const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
-                        addSystemMessage(`Connection lost. Reconnecting in ${delay/1000} seconds...`);
+                        addSystemMessage(`Connection lost. Reconnecting in ${delay / 1000} seconds...`);
                         setTimeout(connectWebSocket, delay);
                         reconnectAttempts++;
                     } else {
-                        addSystemMessage("Connection failed. Please refresh the page.");
+                        addSystemMessage('Connection failed. Please refresh the page.');
                     }
                 };
-    
-                ws.onerror = function(error) {
+                ws.onerror = (error) => {
                     console.error('WebSocket error:', error);
-                    addSystemMessage("Connection error occurred");
+                    addSystemMessage('Connection error occurred');
                 };
             } catch (error) {
                 console.error('WebSocket initialization error:', error);
-                addSystemMessage("Failed to establish connection");
+                addSystemMessage('Failed to establish connection');
             }
         }
     
@@ -334,7 +339,7 @@
         function addUserMessage(text) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'user-message fade-in p-4 max-w-xs md:max-w-md ml-auto';
-            messageDiv.innerHTML = `<p>${text}</p>`;
+            messageDiv.innerHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -342,140 +347,91 @@
         function addBotMessage(text) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'bot-message fade-in p-4 max-w-xs md:max-w-md';
-            messageDiv.innerHTML = `<p>${text}</p>`;
+            // Basic markdown-like formatting
+            const formattedText = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code class="bg-gray-200 px-1 rounded">$1</code>')
+                .replace(/\n/g, '<br>');
+            messageDiv.innerHTML = `<p>${formattedText}</p>`;
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize WebSocket
-            connectWebSocket();
-            
-            // Set up event listeners
-            setupEventListeners();
-        });
-    
-        function setupEventListeners() {
-            // Upload triggers
-            if (uploadBtn) uploadBtn.addEventListener('click', () => fileUpload.click());
-            if (uploadCta) uploadCta.addEventListener('click', () => fileUpload.click());
-    
-            // File upload handler
-            fileUpload.addEventListener('change', handleFileUpload);
-    
-            // Chat input handling
-            chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-    
-            if (sendButton) sendButton.addEventListener('click', sendMessage);
-    
-            // Clear chat history
-            if (clearChat) clearChat.addEventListener('click', clearChatHistory);
-    
-            // Mobile menu toggle
-            const menuToggle = document.getElementById('menu-toggle');
-            if (menuToggle) {
-                menuToggle.addEventListener('click', () => {
-                    document.getElementById('sidebar').classList.toggle('-translate-x-full');
-                });
-            }
-        }
-    
+        // File upload handler
         async function handleFileUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
     
+            const viewer = document.getElementById('document-viewer');
+            const emptyState = viewer?.querySelector('.text-center');
+            if (emptyState) {
+                emptyState.innerHTML = `
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+                    <p>Processing ${file.name}...</p>
+                `;
+            }
+    
             try {
-                // Show loading state
-                const loadingDiv = document.getElementById('document-viewer')?.querySelector('.text-center');
-                if (loadingDiv) {
-                    loadingDiv.innerHTML = `
-                        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-                        <p>Processing ${file.name}...</p>
-                    `;
-                }
-    
-                // Add to document list
-                addDocumentToList(file);
-    
-                // Upload file
                 const formData = new FormData();
                 formData.append('file', file);
-    
-                const response = await fetch('/upload/', {
-                    method: 'POST',
-                    body: formData
-                });
-    
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-    
+                const response = await fetch('/upload/', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const result = await response.json();
-                console.log('Upload successful:', result);
     
-                // Update storage indicator if elements exist
-                if (storageBar && storageText) {
-                    const newUsage = Math.min(100, Math.floor(Math.random() * 20) + 10); // Simulate 10-30% usage
-                    storageBar.style.width = `${newUsage}%`;
-                    storageText.textContent = `${newUsage}% used`;
-                }
-    
-                // Show document preview
-                if (file.type === 'application/pdf') {
-                    showPdfPreview(file);
+                if (result.status === 'success') {
+                    addDocumentToList(file, result.extracted);
+                    if (file.type === 'application/pdf') {
+                        await showPdfPreview(file);
+                    } else {
+                        await showTextPreview(file);
+                    }
+                    addSystemMessage(`Uploaded ${file.name} successfully`);
                 } else {
-                    showTextPreview(file);
+                    throw new Error(result.message);
                 }
-    
             } catch (error) {
                 console.error('Upload failed:', error);
                 addSystemMessage(`Failed to upload ${file.name}: ${error.message}`);
-                
-                // Reset file input
+            } finally {
+                if (emptyState) emptyState.classList.add('hidden');
                 fileUpload.value = '';
             }
         }
     
+        // Send message
         function sendMessage() {
             const messageText = chatInput.value.trim();
-            
             if (!messageText) return;
-            
+    
             if (ws && ws.readyState === WebSocket.OPEN) {
-                // Show typing indicator
                 typingIndicator.classList.remove('hidden');
-                
                 try {
-                    // Send message via WebSocket
                     ws.send(messageText);
                     addUserMessage(messageText);
                     chatInput.value = '';
                 } catch (error) {
                     console.error('Error sending message:', error);
                     typingIndicator.classList.add('hidden');
-                    addSystemMessage("Failed to send message");
+                    addSystemMessage('Failed to send message');
                 }
             } else {
-                addSystemMessage("Connection not ready. Please wait...");
-                connectWebSocket(); // Attempt to reconnect
+                addSystemMessage('Connection not ready. Please wait...');
+                connectWebSocket();
             }
         }
     
+        // Clear chat history
         function clearChatHistory() {
             chatMessages.innerHTML = '';
-            addSystemMessage("Chat history cleared");
+            addSystemMessage('Chat history cleared');
         }
     
         // Document management functions
-        function addDocumentToList(file) {
+        function addDocumentToList(file, extracted) {
+            documents.push({ file, sections: extracted });
             if (!documentList) return;
-            
+    
             const documentItem = document.createElement('li');
             documentItem.className = 'flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg cursor-pointer';
             documentItem.innerHTML = `
@@ -485,74 +441,115 @@
                 </div>
                 <span class="text-xs text-gray-500">Just now</span>
             `;
-            
-            documentItem.addEventListener('click', () => {
+            documentItem.addEventListener('click', async () => {
+                currentDocument = file;
                 if (file.type === 'application/pdf') {
-                    showPdfPreview(file);
+                    await showPdfPreview(file);
                 } else {
-                    showTextPreview(file);
+                    await showTextPreview(file);
                 }
             });
-            
-            documentList.insertBefore(documentItem, documentList.firstChild);
-            documents.push(file);
+            documentList.innerHTML = ''; // Clear existing list
+            documentList.appendChild(documentItem);
+            // Update storage bar (simulated)
+            if (storageBar) storageBar.style.width = `${Math.min(100, documents.length * 10)}%`;
         }
     
         function getFileIcon(fileType) {
             if (fileType === 'application/pdf') return 'bi-file-earmark-pdf';
-            if (fileType.includes('word')) return 'bi-file-earmark-word';
+            if (fileType.includes('csv')) return 'bi-file-earmark-excel';
             if (fileType.includes('excel')) return 'bi-file-earmark-excel';
-            if (fileType.includes('powerpoint')) return 'bi-file-earmark-ppt';
-            if (fileType.includes('text')) return 'bi-file-earmark-text';
-            return 'bi-file-earmark';
+            if (fileType.includes('word')) return 'bi-file-earmark-word';
+            return 'bi-file-earmark-text';
         }
     
-        function showPdfPreview(file) {
-            const viewer = document.getElementById('document-viewer');
-            if (!viewer) return;
-            
-            const emptyState = viewer.querySelector('.text-center');
-            const pdfContainer = document.getElementById('pdf-container');
-            
-            if (emptyState) emptyState.classList.add('hidden');
-            if (pdfContainer) {
-                pdfContainer.classList.remove('hidden');
-                const titleElement = document.getElementById('document-title');
-                if (titleElement) titleElement.textContent = file.name;
-                
-                // Create object URL for preview
-                const objectUrl = URL.createObjectURL(file);
-                const pdfViewer = document.getElementById('pdf-viewer');
-                if (pdfViewer) {
-                    pdfViewer.data = objectUrl;
-                    const downloadLink = document.getElementById('pdf-download-link');
-                    if (downloadLink) downloadLink.href = objectUrl;
+        async function showPdfPreview(file) {
+            if (!pdfContainer) return;
+            textContainer.classList.add('hidden');
+            pdfContainer.classList.remove('hidden');
+            documentTitle.textContent = file.name;
+    
+            try {
+                const pdfjs = await loadPdfJs();
+                const pdfData = await file.arrayBuffer();
+                const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+                const canvas = document.createElement('canvas');
+                pdfViewer.replaceChildren(canvas);
+                const context = canvas.getContext('2d');
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 1.5 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: context, viewport }).promise;
+            } catch (error) {
+                console.error('PDF rendering failed:', error);
+                addSystemMessage('Failed to render PDF preview');
+                pdfViewer.innerHTML = '<p class="p-8 text-center text-gray-500">Error loading PDF preview.</p>';
+            }
+        }
+    
+        async function showTextPreview(file) {
+            if (!textContainer) return;
+            pdfContainer.classList.add('hidden');
+            textContainer.classList.remove('hidden');
+            textTitle.textContent = file.name;
+    
+            try {
+                const response = await fetch(`/file/${file.name}`);
+                if (!response.ok) throw new Error('Failed to fetch text content');
+                const text = await response.text();
+                textContent.textContent = text;
+            } catch (error) {
+                console.error('Text preview failed:', error);
+                textContent.textContent = 'Error loading text content.';
+                addSystemMessage('Failed to load text preview');
+            }
+        }
+    
+        // Debounce function for input events
+        function debounce(func, wait) {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+    
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            // Event listeners
+            if (uploadBtn) uploadBtn.addEventListener('click', () => fileUpload.click());
+            if (uploadCta) uploadCta.addEventListener('click', () => fileUpload.click());
+            fileUpload.addEventListener('change', handleFileUpload);
+            if (sendButton) sendButton.addEventListener('click', sendMessage);
+            if (clearChat) clearChat.addEventListener('click', clearChatHistory);
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
                 }
+            });
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menu-toggle');
+            if (menuToggle) {
+                menuToggle.addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.toggle('-translate-x-full');
+                });
             }
-        }
-    
-        function showTextPreview(file) {
-            const viewer = document.getElementById('document-viewer');
-            if (!viewer) return;
-            
-            const emptyState = viewer.querySelector('.text-center');
-            const textContainer = document.getElementById('text-container');
-            
-            if (emptyState) emptyState.classList.add('hidden');
-            if (textContainer) {
-                textContainer.classList.remove('hidden');
-                const titleElement = document.getElementById('text-title');
-                if (titleElement) titleElement.textContent = file.name;
-                
-                // Read file content
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const textContent = document.getElementById('text-content');
-                    if (textContent) textContent.textContent = e.target.result;
-                };
-                reader.readAsText(file);
+            // Debounced search (if search input exists)
+            const searchInput = document.querySelector('input[placeholder="Search documents..."]');
+            if (searchInput) {
+                searchInput.addEventListener('input', debounce((e) => {
+                    const query = e.target.value.toLowerCase();
+                    documentList.innerHTML = '';
+                    documents
+                        .filter(doc => doc.file.name.toLowerCase().includes(query))
+                        .forEach(doc => addDocumentToList(doc.file, doc.sections));
+                }, 300));
             }
-        }
+        });
     </script>
+    
 </body>
 </html>
