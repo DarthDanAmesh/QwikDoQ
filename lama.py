@@ -48,7 +48,7 @@ CHROMA_PORT = 8081
 BASE_DIR = Path(__file__).parent
 UPLOAD_DIRECTORY = BASE_DIR / "uploads"
 INDEXED_DIRECTORY = BASE_DIR / "indexed"
-HTML_FILE_PATH = BASE_DIR / "home.html"
+HTML_FILE_PATH = BASE_DIR / "index.html"
 
 
 class PDFTextExtractor:
@@ -150,7 +150,7 @@ class KnowledgeBaseIndexer:
         try:
             from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
             self.embedding_function = OllamaEmbeddingFunction(
-                model_name="qwen2:0.5b",
+                model_name="embeddinggemma:latest",
                 #model_name="mxbai-embed-large",
                 url=ollama_url
             )
@@ -401,7 +401,7 @@ class ChatbotService:
             
             # Generate response using Ollama
             response = await self.llm_client.chat(
-                #model="mxbai-embed-large",
+                #model="mxbai-embed-large",:  mxbai this is an embedding model, does not support tooling/generate
                 model="qwen2:0.5b",
                 messages=[{"role": "user", "content": enhanced_prompt}],
                 stream=False
@@ -416,7 +416,6 @@ class ChatbotService:
                 # Try to generate a response without context
                 response = await self.llm_client.chat(
                     model="qwen2:0.5b",
-                    #model="mxbai-embed-large",
                     messages=[{"role": "user", "content": query}],
                     stream=False
                 )
