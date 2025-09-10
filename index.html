@@ -452,51 +452,62 @@
     </div>
     
     <script>
-        // Global variables and WebSocket setup
-        let ws;
-        let currentFile = null;
-        let currentSection = null;
-        let currentModel = 'gpt-4';
-        let pdfDoc = null;
-        let pageNum = 1;
-        let pageRendering = false;
-        let pageNumPending = null;
-        let scale = 1.0;
-        let highlights = [];
-        let isHighlighting = false;
-        let selectedText = '';
-        let selectedHighlightId = null;
-        let conversationHistory = [];
-        let currentConversationId = null;
+    // Global variables and WebSocket setup
+    let ws;
+    let currentFile = null;
+    let currentSection = null;
+    let currentModel = 'gpt-4';
+    let pdfDoc = null;
+    let pageNum = 1;
+    let pageRendering = false;
+    let pageNumPending = null;
+    let scale = 1.0;
+    let highlights = [];
+    let isHighlighting = false;
+    let selectedText = '';
+    let selectedHighlightId = null;
+    let conversationHistory = [];
+    let currentConversationId = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    
+    // Set up PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    
+    // DOM Elements
+    const fileUpload = document.getElementById('file-upload');
+    const uploadBtn = document.getElementById('upload-btn');
+    const messages = document.getElementById('messages');
+    const messageInput = document.getElementById('messageText');
+    const fileDetailsSection = document.getElementById('file-details');
+    const documentContent = document.getElementById('document-content');
+    const pdfPreview = document.getElementById('pdf-preview');
+    const pdfCanvas = document.getElementById('pdf-canvas');
+    const ctx = pdfCanvas.getContext('2d');
+    const highlightsSection = document.getElementById('highlights-section');
+    const highlightsList = document.getElementById('highlights-list');
+    const highlightMenu = document.getElementById('highlight-menu');
+    const annotationPopup = document.getElementById('annotation-popup');
+    const annotationBackdrop = document.getElementById('annotation-backdrop');
+    const ragSearchModal = document.getElementById('rag-search-modal');
+    const ragSearchResults = document.getElementById('rag-search-results');
+    const conversationHistoryContainer = document.getElementById('conversation-history');
+    
+    // WebSocket Connection with improved error handling and reconnection
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         
-        // Set up PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-        
-        // DOM Elements
-        const fileUpload = document.getElementById('file-upload');
-        const uploadBtn = document.getElementById('upload-btn');
-        const messages = document.getElementById('messages');
-        const messageInput = document.getElementById('messageText');
-        const fileDetailsSection = document.getElementById('file-details');
-        const documentContent = document.getElementById('document-content');
-        const pdfPreview = document.getElementById('pdf-preview');
-        const pdfCanvas = document.getElementById('pdf-canvas');
-        const ctx = pdfCanvas.getContext('2d');
-        const highlightsSection = document.getElementById('highlights-section');
-        const highlightsList = document.getElementById('highlights-list');
-        const highlightMenu = document.getElementById('highlight-menu');
-        const annotationPopup = document.getElementById('annotation-popup');
-        const annotationBackdrop = document.getElementById('annotation-backdrop');
-        const ragSearchModal = document.getElementById('rag-search-modal');
-        const ragSearchResults = document.getElementById('rag-search-results');
-        const conversationHistoryContainer = document.getElementById('conversation-history');
-        
-        // Websocket Connection
-        function connectWebSocket() {
-        ws = new WebSocket("ws://localhost:8000/ws");
+        ws = new WebSocket(wsUrl);
         
         ws.onopen = function() {
             console.log('WebSocket connection established');
+            reconnectAttempts = 0;
+            
+            // Request initial status
+            ws.send(JSON.stringify({
+                type: 'status_request'
+            }));
         };
         
         ws.onmessage = function(event) {
@@ -504,12 +515,35 @@
                 // Check if the data is valid JSON first
                 const data = JSON.parse(event.data);
                 
-                if (data.type === 'message') {
-                    addMessageToChat(data.content, 'bot');
-                } else if (data.type === 'rag_search_results') {
-                    displayRagSearchResults(data.results);
-                } else if (data.type === 'highlight_explanation') {
-                    addMessageToChat(data.explanation, 'bot');
+                // Handle different message types
+                switch(data.type) {
+                    case 'response':
+                        addMessageToChat(data.content, 'bot');
+                        saveMessageToHistory(data.content, 'bot');
+                        break;
+                        
+                    case 'status':
+                        updateStatusUI(data.data);
+                        break;
+                        
+                    case 'indexing_complete':
+                        showNotification(`Indexing complete: ${data.documents_indexed} documents from ${data.filename}`, 'success');
+                        // Refresh status
+                        ws.send(JSON.stringify({
+                            type: 'status_request'
+                        }));
+                        break;
+                        
+                    case 'error':
+                        showNotification(`Error: ${data.message}`, 'error');
+                        break;
+                        
+                    default:
+                        // Handle plain text messages (backward compatibility)
+                        if (typeof data === 'string') {
+                            addMessageToChat(data, 'bot');
+                            saveMessageToHistory(data, 'bot');
+                        }
                 }
             } catch (error) {
                 console.error('Error parsing WebSocket message:', error);
@@ -518,837 +552,941 @@
                 // If it's not JSON, display it as a plain message
                 if (event.data && event.data.trim()) {
                     addMessageToChat(event.data, 'bot');
+                    saveMessageToHistory(event.data, 'bot');
                 }
             }
         };
         
         ws.onclose = function() {
             console.log('WebSocket connection closed');
+            
             // Attempt to reconnect after a delay
-            setTimeout(connectWebSocket, 2000);
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                console.log(`Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`);
+                setTimeout(connectWebSocket, 3000 * reconnectAttempts);
+            } else {
+                showNotification('WebSocket connection lost. Please refresh the page.', 'error');
+            }
         };
         
         ws.onerror = function(error) {
             console.error('WebSocket error:', error);
+            showNotification('WebSocket error occurred', 'error');
         };
     }
+    
+    // Update status UI
+    function updateStatusUI(statusData) {
+        // Update or create status indicator
+        let statusIndicator = document.getElementById('status-indicator');
         
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            connectWebSocket();
-            loadConversationHistory();
+        if (!statusIndicator) {
+            statusIndicator = document.createElement('div');
+            statusIndicator.id = 'status-indicator';
+            statusIndicator.className = 'fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs z-50 border';
+            document.body.appendChild(statusIndicator);
+        }
+        
+        // Update status content
+        if (statusData.is_indexing) {
+            statusIndicator.innerHTML = `
+                <div class="flex items-center mb-2">
+                    <div class="w-3 h-3 rounded-full bg-yellow-500 animate-pulse mr-2"></div>
+                    <span class="font-medium">Indexing in progress</span>
+                </div>
+                <div class="text-sm text-gray-600">
+                    <div>${statusData.status_message}</div>
+                    <div class="mt-1">${statusData.current_file}</div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${statusData.progress}%"></div>
+                    </div>
+                    <div class="text-xs mt-1">${statusData.processed_files}/${statusData.total_files} files</div>
+                </div>
+            `;
+        } else {
+            statusIndicator.innerHTML = `
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                    <span class="font-medium">${statusData.status_message}</span>
+                </div>
+            `;
             
-            // Upload button click triggers file input
-            uploadBtn.addEventListener('click', () => fileUpload.click());
+            // Auto-hide after 5 seconds if not indexing
+            setTimeout(() => {
+                if (!statusData.is_indexing) {
+                    statusIndicator.style.opacity = '0';
+                    statusIndicator.style.transition = 'opacity 0.5s';
+                    setTimeout(() => {
+                        statusIndicator.remove();
+                    }, 500);
+                }
+            }, 5000);
+        }
+        
+        // Show error if present
+        if (statusData.error) {
+            showNotification(`Indexing error: ${statusData.error}`, 'error');
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        connectWebSocket();
+        loadConversationHistory();
+        
+        // Upload button click triggers file input
+        uploadBtn.addEventListener('click', () => fileUpload.click());
+        
+        // File upload handler
+        fileUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
             
-            // File upload handler
-            fileUpload.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                currentFile = file;
-                
-                // Update file details section
-                fileDetailsSection.innerHTML = `
-                    <p><strong>Name:</strong> ${file.name}</p>
-                    <p><strong>Type:</strong> ${file.type}</p>
-                    <p><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</p>
-                    <p><strong>Last Modified:</strong> ${new Date(file.lastModified).toLocaleString()}</p>
-                `;
-                
-                // Preview PDF if applicable
-                if (file.type === 'application/pdf') {
-                    showPdfPreview(file);
-                } else {
-                    // For text files, display content
-                    if (file.type === 'text/plain') {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            documentContent.innerHTML = `<pre class="whitespace-pre-wrap">${e.target.result}</pre>`;
-                            documentContent.classList.remove('hidden');
-                            pdfPreview.classList.add('hidden');
-                        };
-                        reader.readAsText(file);
-                    } else {
-                        // For other file types, show a placeholder
-                        documentContent.innerHTML = `
-                            <div class="text-center py-12 text-gray-500">
-                                <i class="bi bi-file-earmark-text text-4xl mb-3"></i>
-                                <h2 class="text-xl font-medium">${file.name}</h2>
-                                <p class="mt-2">File preview not available for this file type</p>
-                            </div>
-                        `;
+            currentFile = file;
+            
+            // Update file details section
+            fileDetailsSection.innerHTML = `
+                <p><strong>Name:</strong> ${file.name}</p>
+                <p><strong>Type:</strong> ${file.type}</p>
+                <p><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</p>
+                <p><strong>Last Modified:</strong> ${new Date(file.lastModified).toLocaleString()}</p>
+            `;
+            
+            // Preview PDF if applicable
+            if (file.type === 'application/pdf') {
+                showPdfPreview(file);
+            } else {
+                // For text files, display content
+                if (file.type === 'text/plain') {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        documentContent.innerHTML = `<pre class="whitespace-pre-wrap">${e.target.result}</pre>`;
                         documentContent.classList.remove('hidden');
                         pdfPreview.classList.add('hidden');
-                    }
-                }
-                
-                // Upload file
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                try {
-                    const response = await fetch('/upload/', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const result = await response.json();
-                    console.log('Upload successful:', result);
-                    
-                    // Update progress bar
-                    updateProgressBar(100);
-                    
-                    // Show success message
-                    showNotification('File uploaded successfully', 'success');
-                } catch (error) {
-                    console.error('Upload failed:', error);
-                    showNotification('File upload failed', 'error');
-                }
-            });
-            
-            // Model selector
-            document.getElementById('model-selector-btn').addEventListener('click', () => {
-                document.getElementById('model-dropdown').style.display = 
-                    document.getElementById('model-dropdown').style.display === 'block' ? 'none' : 'block';
-            });
-            
-            // Model selection
-            document.querySelectorAll('#model-dropdown button').forEach(button => {
-                button.addEventListener('click', () => {
-                    currentModel = button.dataset.model;
-                    document.getElementById('current-model').textContent = button.textContent;
-                    document.getElementById('model-dropdown').style.display = 'none';
-                });
-            });
-            
-            // Close model dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.model-selector')) {
-                    document.getElementById('model-dropdown').style.display = 'none';
-                }
-            });
-            
-            // Highlight toggle
-            document.getElementById('highlight-toggle').addEventListener('click', () => {
-                isHighlighting = !isHighlighting;
-                document.getElementById('highlight-toggle').classList.toggle('bg-yellow-200');
-                document.getElementById('highlight-toggle').classList.toggle('text-yellow-900');
-            });
-            
-            // Highlight menu buttons
-            document.getElementById('add-comment').addEventListener('click', () => {
-                showAnnotationPopup('comment');
-            });
-            
-            document.getElementById('add-tag').addEventListener('click', () => {
-                showAnnotationPopup('tag');
-            });
-            
-            document.getElementById('ask-about').addEventListener('click', () => {
-                if (selectedText) {
-                    messageInput.value = `Explain this highlighted text: "${selectedText}"`;
-                    messageInput.focus();
-                }
-                highlightMenu.style.display = 'none';
-            });
-            
-            document.getElementById('remove-highlight').addEventListener('click', () => {
-                if (selectedHighlightId !== null) {
-                    highlights = highlights.filter(h => h.id !== selectedHighlightId);
-                    renderHighlights();
-                    updateHighlightsList();
-                    highlightMenu.style.display = 'none';
-                }
-            });
-            
-            // Annotation popup buttons
-            document.getElementById('cancel-annotation').addEventListener('click', () => {
-                annotationPopup.style.display = 'none';
-                annotationBackdrop.style.display = 'none';
-            });
-            
-            document.getElementById('save-annotation').addEventListener('click', () => {
-                const comment = document.getElementById('annotation-comment').value;
-                const tags = document.getElementById('annotation-tags').value.split(',').map(t => t.trim()).filter(t => t);
-                
-                if (selectedHighlightId !== null) {
-                    const highlight = highlights.find(h => h.id === selectedHighlightId);
-                    if (highlight) {
-                        if (comment) highlight.comment = comment;
-                        if (tags.length > 0) highlight.tags = tags;
-                    }
-                }
-                
-                annotationPopup.style.display = 'none';
-                annotationBackdrop.style.display = 'none';
-                updateHighlightsList();
-            });
-            
-            // Export highlights
-            document.getElementById('export-highlights').addEventListener('click', () => {
-                exportHighlights();
-            });
-            
-            // RAG search
-            document.getElementById('rag-search-btn').addEventListener('click', () => {
-                ragSearchModal.classList.remove('hidden');
-                document.getElementById('rag-search-input').focus();
-            });
-            
-            document.getElementById('close-rag-search').addEventListener('click', () => {
-                ragSearchModal.classList.add('hidden');
-            });
-            
-            document.getElementById('perform-rag-search').addEventListener('click', () => {
-                const query = document.getElementById('rag-search-input').value;
-                if (query.trim()) {
-                    performRagSearch(query);
-                }
-            });
-            
-            // PDF controls
-            document.getElementById('prev-page').addEventListener('click', () => {
-                if (pageNum <= 1) return;
-                pageNum--;
-                queueRenderPage(pageNum);
-            });
-            
-            document.getElementById('next-page').addEventListener('click', () => {
-                if (pageNum >= pdfDoc.numPages) return;
-                pageNum++;
-                queueRenderPage(pageNum);
-            });
-            
-            document.getElementById('zoom-in').addEventListener('click', () => {
-                scale += 0.25;
-                queueRenderPage(pageNum);
-                document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
-            });
-            
-            document.getElementById('zoom-out').addEventListener('click', () => {
-                if (scale <= 0.5) return;
-                scale -= 0.25;
-                queueRenderPage(pageNum);
-                document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
-            });
-            
-            // Text selection for highlighting
-            document.addEventListener('mouseup', () => {
-                if (!isHighlighting) return;
-                
-                const selection = window.getSelection();
-                if (selection.toString().trim()) {
-                    selectedText = selection.toString().trim();
-                    
-                    // Get the position of the selection
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    
-                    // Show highlight menu
-                    highlightMenu.style.display = 'block';
-                    highlightMenu.style.left = rect.left + 'px';
-                    highlightMenu.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-                    
-                    // Create a new highlight
-                    const newHighlight = {
-                        id: Date.now(),
-                        text: selectedText,
-                        page: pageNum,
-                        position: {
-                            x: rect.left,
-                            y: rect.top,
-                            width: rect.width,
-                            height: rect.height
-                        },
-                        comment: '',
-                        tags: []
                     };
-                    
-                    highlights.push(newHighlight);
-                    selectedHighlightId = newHighlight.id;
-                    
-                    // Clear selection
-                    selection.removeAllRanges();
-                    
-                    // Render highlights
-                    renderHighlights();
-                    updateHighlightsList();
-                }
-            });
-            
-            // Hide highlight menu when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('#highlight-menu') && !e.target.closest('#pdf-canvas')) {
-                    highlightMenu.style.display = 'none';
-                }
-            });
-            
-            // Highlight click handler
-            document.addEventListener('click', (e) => {
-                if (e.target.classList.contains('highlight')) {
-                    const highlightId = parseInt(e.target.dataset.id);
-                    selectedHighlightId = highlightId;
-                    
-                    // Get the highlight
-                    const highlight = highlights.find(h => h.id === highlightId);
-                    if (highlight) {
-                        selectedText = highlight.text;
-                        
-                        // Show highlight menu
-                        highlightMenu.style.display = 'block';
-                        highlightMenu.style.left = e.pageX + 'px';
-                        highlightMenu.style.top = (e.pageY + 5) + 'px';
-                    }
-                }
-            });
-            
-            // Conversation history toggle
-            document.getElementById('history-toggle').addEventListener('click', () => {
-                const historyContainer = document.getElementById('conversation-history');
-                const toggleIcon = document.querySelector('#history-toggle i');
-                
-                if (historyContainer.style.display === 'none') {
-                    historyContainer.style.display = 'block';
-                    toggleIcon.classList.remove('bi-chevron-right');
-                    toggleIcon.classList.add('bi-chevron-down');
+                    reader.readAsText(file);
                 } else {
-                    historyContainer.style.display = 'none';
-                    toggleIcon.classList.remove('bi-chevron-down');
-                    toggleIcon.classList.add('bi-chevron-right');
+                    // For other file types, show a placeholder
+                    documentContent.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="bi bi-file-earmark-text text-4xl mb-3"></i>
+                            <h2 class="text-xl font-medium">${file.name}</h2>
+                            <p class="mt-2">File preview not available for this file type</p>
+                        </div>
+                    `;
+                    documentContent.classList.remove('hidden');
+                    pdfPreview.classList.add('hidden');
                 }
-            });
+            }
             
-            // Sidebar toggle
-            document.getElementById('sidebar-toggle').addEventListener('click', () => {
-                const sidebar = document.getElementById('left-sidebar');
-                sidebar.classList.toggle('-translate-x-full');
+            // Upload file
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showNotification('Uploading and processing file...', 'info');
+                const response = await fetch('/upload/', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                console.log('Upload response:', result);
+                
+                if (result.status === 'success') {
+                    showNotification('File uploaded successfully', 'success');
+                } else if (result.status === 'processing') {
+                    showNotification('File uploaded. Processing in background...', 'info');
+                } else {
+                    showNotification(`Upload failed: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+                showNotification('File upload failed', 'error');
+            }
+        });
+        
+        // Model selector
+        document.getElementById('model-selector-btn').addEventListener('click', () => {
+            document.getElementById('model-dropdown').style.display = 
+                document.getElementById('model-dropdown').style.display === 'block' ? 'none' : 'block';
+        });
+        
+        // Model selection
+        document.querySelectorAll('#model-dropdown button').forEach(button => {
+            button.addEventListener('click', () => {
+                currentModel = button.dataset.model;
+                document.getElementById('current-model').textContent = button.textContent;
+                document.getElementById('model-dropdown').style.display = 'none';
             });
         });
         
-        // Show PDF preview
-        function showPdfPreview(file) {
-            documentContent.classList.add('hidden');
-            pdfPreview.classList.remove('hidden');
-            highlightsSection.classList.remove('hidden');
-            
-            const fileReader = new FileReader();
-            fileReader.onload = function() {
-                const typedarray = new Uint8Array(this.result);
-                
-                pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-                    pdfDoc = pdf;
-                    document.getElementById('page-num').textContent = `Page: ${pageNum}/${pdf.numPages}`;
-                    renderPage(pageNum);
-                });
-            };
-            fileReader.readAsArrayBuffer(file);
-        }
-        
-        // Render PDF page
-        function renderPage(num) {
-            pageRendering = true;
-            
-            pdfDoc.getPage(num).then(page => {
-                const viewport = page.getViewport({ scale: scale });
-                pdfCanvas.height = viewport.height;
-                pdfCanvas.width = viewport.width;
-                
-                const renderContext = {
-                    canvasContext: ctx,
-                    viewport: viewport
-                };
-                
-                const renderTask = page.render(renderContext);
-                
-                renderTask.promise.then(() => {
-                    pageRendering = false;
-                    if (pageNumPending !== null) {
-                        renderPage(pageNumPending);
-                        pageNumPending = null;
-                    }
-                    
-                    // Re-render highlights after page is rendered
-                    renderHighlights();
-                });
-            });
-            
-            document.getElementById('page-num').textContent = `Page: ${num}/${pdfDoc.numPages}`;
-        }
-        
-        // Queue render page
-        function queueRenderPage(num) {
-            if (pageRendering) {
-                pageNumPending = num;
-            } else {
-                renderPage(num);
+        // Close model dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.model-selector')) {
+                document.getElementById('model-dropdown').style.display = 'none';
             }
-        }
+        });
         
-        // Render highlights
-        function renderHighlights() {
-            // Clear existing highlight elements
-            document.querySelectorAll('.highlight').forEach(el => el.remove());
-            
-            // Create a temporary canvas for highlights
-            const highlightCanvas = document.createElement('canvas');
-            highlightCanvas.width = pdfCanvas.width;
-            highlightCanvas.height = pdfCanvas.height;
-            highlightCanvas.style.position = 'absolute';
-            highlightCanvas.style.top = pdfCanvas.offsetTop + 'px';
-            highlightCanvas.style.left = pdfCanvas.offsetLeft + 'px';
-            highlightCanvas.style.pointerEvents = 'none';
-            highlightCanvas.classList.add('highlight-canvas');
-            
-            // Remove existing highlight canvas
-            document.querySelectorAll('.highlight-canvas').forEach(el => el.remove());
-            
-            // Add the new highlight canvas
-            pdfCanvas.parentNode.appendChild(highlightCanvas);
-            
-            const highlightCtx = highlightCanvas.getContext('2d');
-            
-            // Draw highlights for the current page
-            highlights
-                .filter(h => h.page === pageNum)
-                .forEach(highlight => {
-                    // Scale the position based on the current scale
-                    const x = highlight.position.x * scale;
-                    const y = highlight.position.y * scale;
-                    const width = highlight.position.width * scale;
-                    const height = highlight.position.height * scale;
-                    
-                    // Draw highlight
-                    highlightCtx.fillStyle = 'rgba(254, 240, 138, 0.5)';
-                    highlightCtx.fillRect(x, y, width, height);
-                    
-                    // Create a clickable area for the highlight
-                    const clickableArea = document.createElement('div');
-                    clickableArea.className = 'highlight';
-                    clickableArea.dataset.id = highlight.id;
-                    clickableArea.style.position = 'absolute';
-                    clickableArea.style.top = (pdfCanvas.offsetTop + y) + 'px';
-                    clickableArea.style.left = (pdfCanvas.offsetLeft + x) + 'px';
-                    clickableArea.style.width = width + 'px';
-                    clickableArea.style.height = height + 'px';
-                    clickableArea.style.cursor = 'pointer';
-                    clickableArea.style.zIndex = '10';
-                    
-                    pdfCanvas.parentNode.appendChild(clickableArea);
-                });
-        }
+        // Highlight toggle
+        document.getElementById('highlight-toggle').addEventListener('click', () => {
+            isHighlighting = !isHighlighting;
+            document.getElementById('highlight-toggle').classList.toggle('bg-yellow-200');
+            document.getElementById('highlight-toggle').classList.toggle('text-yellow-900');
+        });
         
-        // Update highlights list
-        function updateHighlightsList() {
-            if (highlights.length === 0) {
-                highlightsList.innerHTML = '<p class="text-gray-500 text-sm">No highlights yet</p>';
-                return;
+        // Highlight menu buttons
+        document.getElementById('add-comment').addEventListener('click', () => {
+            showAnnotationPopup('comment');
+        });
+        
+        document.getElementById('add-tag').addEventListener('click', () => {
+            showAnnotationPopup('tag');
+        });
+        
+        document.getElementById('ask-about').addEventListener('click', () => {
+            if (selectedText) {
+                messageInput.value = `Explain this highlighted text: "${selectedText}"`;
+                messageInput.focus();
             }
-            
-            highlightsList.innerHTML = '';
-            
-            highlights.forEach(highlight => {
-                const highlightItem = document.createElement('div');
-                highlightItem.className = 'bg-gray-50 p-3 rounded-lg';
-                highlightItem.dataset.id = highlight.id;
-                
-                let tagsHtml = '';
-                if (highlight.tags && highlight.tags.length > 0) {
-                    tagsHtml = highlight.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
-                }
-                
-                highlightItem.innerHTML = `
-                    <div class="text-sm font-medium mb-1">${highlight.text.substring(0, 50)}${highlight.text.length > 50 ? '...' : ''}</div>
-                    <div class="text-xs text-gray-500 mb-2">Page ${highlight.page}</div>
-                    ${tagsHtml ? `<div class="mb-2">${tagsHtml}</div>` : ''}
-                    ${highlight.comment ? `<div class="text-xs text-gray-600 italic">${highlight.comment}</div>` : ''}
-                `;
-                
-                highlightItem.addEventListener('click', () => {
-                    // Navigate to the page of the highlight
-                    if (highlight.page !== pageNum) {
-                        pageNum = highlight.page;
-                        queueRenderPage(pageNum);
-                    }
-                    
-                    // Select the highlight
-                    selectedHighlightId = highlight.id;
-                    selectedText = highlight.text;
-                });
-                
-                highlightsList.appendChild(highlightItem);
-            });
-        }
+            highlightMenu.style.display = 'none';
+        });
         
-        // Show annotation popup
-        function showAnnotationPopup(type) {
-            annotationPopup.style.display = 'block';
-            annotationBackdrop.style.display = 'block';
-            
-            if (type === 'comment') {
-                document.getElementById('annotation-comment').focus();
-            } else if (type === 'tag') {
-                document.getElementById('annotation-tags').focus();
+        document.getElementById('remove-highlight').addEventListener('click', () => {
+            if (selectedHighlightId !== null) {
+                highlights = highlights.filter(h => h.id !== selectedHighlightId);
+                renderHighlights();
+                updateHighlightsList();
+                highlightMenu.style.display = 'none';
             }
+        });
+        
+        // Annotation popup buttons
+        document.getElementById('cancel-annotation').addEventListener('click', () => {
+            annotationPopup.style.display = 'none';
+            annotationBackdrop.style.display = 'none';
+        });
+        
+        document.getElementById('save-annotation').addEventListener('click', () => {
+            const comment = document.getElementById('annotation-comment').value;
+            const tags = document.getElementById('annotation-tags').value.split(',').map(t => t.trim()).filter(t => t);
             
-            // Pre-fill with existing data if available
             if (selectedHighlightId !== null) {
                 const highlight = highlights.find(h => h.id === selectedHighlightId);
                 if (highlight) {
-                    document.getElementById('annotation-comment').value = highlight.comment || '';
-                    document.getElementById('annotation-tags').value = highlight.tags ? highlight.tags.join(', ') : '';
+                    if (comment) highlight.comment = comment;
+                    if (tags.length > 0) highlight.tags = tags;
                 }
             }
             
-            highlightMenu.style.display = 'none';
-        }
+            annotationPopup.style.display = 'none';
+            annotationBackdrop.style.display = 'none';
+            updateHighlightsList();
+        });
         
         // Export highlights
-        function exportHighlights() {
-            if (highlights.length === 0) {
-                showNotification('No highlights to export', 'warning');
-                return;
+        document.getElementById('export-highlights').addEventListener('click', () => {
+            exportHighlights();
+        });
+        
+        // RAG search
+        document.getElementById('rag-search-btn').addEventListener('click', () => {
+            ragSearchModal.classList.remove('hidden');
+            document.getElementById('rag-search-input').focus();
+        });
+        
+        document.getElementById('close-rag-search').addEventListener('click', () => {
+            ragSearchModal.classList.add('hidden');
+        });
+        
+        document.getElementById('perform-rag-search').addEventListener('click', () => {
+            const query = document.getElementById('rag-search-input').value;
+            if (query.trim()) {
+                performRagSearch(query);
             }
+        });
+        
+        // PDF controls
+        document.getElementById('prev-page').addEventListener('click', () => {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        });
+        
+        document.getElementById('next-page').addEventListener('click', () => {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        });
+        
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            scale += 0.25;
+            queueRenderPage(pageNum);
+            document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+        });
+        
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            if (scale <= 0.5) return;
+            scale -= 0.25;
+            queueRenderPage(pageNum);
+            document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+        });
+        
+        // Text selection for highlighting
+        document.addEventListener('mouseup', () => {
+            if (!isHighlighting) return;
             
-            const exportData = {
-                file: currentFile ? currentFile.name : 'Unknown',
-                exportDate: new Date().toISOString(),
-                highlights: highlights
+            const selection = window.getSelection();
+            if (selection.toString().trim()) {
+                selectedText = selection.toString().trim();
+                
+                // Get the position of the selection
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                
+                // Show highlight menu
+                highlightMenu.style.display = 'block';
+                highlightMenu.style.left = rect.left + 'px';
+                highlightMenu.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+                
+                // Create a new highlight
+                const newHighlight = {
+                    id: Date.now(),
+                    text: selectedText,
+                    page: pageNum,
+                    position: {
+                        x: rect.left,
+                        y: rect.top,
+                        width: rect.width,
+                        height: rect.height
+                    },
+                    comment: '',
+                    tags: []
+                };
+                
+                highlights.push(newHighlight);
+                selectedHighlightId = newHighlight.id;
+                
+                // Clear selection
+                selection.removeAllRanges();
+                
+                // Render highlights
+                renderHighlights();
+                updateHighlightsList();
+            }
+        });
+        
+        // Hide highlight menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#highlight-menu') && !e.target.closest('#pdf-canvas')) {
+                highlightMenu.style.display = 'none';
+            }
+        });
+        
+        // Highlight click handler
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('highlight')) {
+                const highlightId = parseInt(e.target.dataset.id);
+                selectedHighlightId = highlightId;
+                
+                // Get the highlight
+                const highlight = highlights.find(h => h.id === highlightId);
+                if (highlight) {
+                    selectedText = highlight.text;
+                    
+                    // Show highlight menu
+                    highlightMenu.style.display = 'block';
+                    highlightMenu.style.left = e.pageX + 'px';
+                    highlightMenu.style.top = (e.pageY + 5) + 'px';
+                }
+            }
+        });
+        
+        // Conversation history toggle
+        document.getElementById('history-toggle').addEventListener('click', () => {
+            const historyContainer = document.getElementById('conversation-history');
+            const toggleIcon = document.querySelector('#history-toggle i');
+            
+            if (historyContainer.style.display === 'none') {
+                historyContainer.style.display = 'block';
+                toggleIcon.classList.remove('bi-chevron-right');
+                toggleIcon.classList.add('bi-chevron-down');
+            } else {
+                historyContainer.style.display = 'none';
+                toggleIcon.classList.remove('bi-chevron-down');
+                toggleIcon.classList.add('bi-chevron-right');
+            }
+        });
+        
+        // Sidebar toggle
+        document.getElementById('sidebar-toggle').addEventListener('click', () => {
+            const sidebar = document.getElementById('left-sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        });
+    });
+    
+    // Show PDF preview
+    function showPdfPreview(file) {
+        documentContent.classList.add('hidden');
+        pdfPreview.classList.remove('hidden');
+        highlightsSection.classList.remove('hidden');
+        
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+            const typedarray = new Uint8Array(this.result);
+            
+            pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                pdfDoc = pdf;
+                document.getElementById('page-num').textContent = `Page: ${pageNum}/${pdf.numPages}`;
+                renderPage(pageNum);
+            });
+        };
+        fileReader.readAsArrayBuffer(file);
+    }
+    
+    // Render PDF page
+    function renderPage(num) {
+        pageRendering = true;
+        
+        pdfDoc.getPage(num).then(page => {
+            const viewport = page.getViewport({ scale: scale });
+            pdfCanvas.height = viewport.height;
+            pdfCanvas.width = viewport.width;
+            
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
             };
             
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const renderTask = page.render(renderContext);
             
-            const exportFileDefaultName = `highlights_${currentFile ? currentFile.name.replace(/\.[^/.]+$/, "") : 'document'}_${new Date().toISOString().slice(0, 10)}.json`;
-            
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
-            
-            showNotification('Highlights exported successfully', 'success');
+            renderTask.promise.then(() => {
+                pageRendering = false;
+                if (pageNumPending !== null) {
+                    renderPage(pageNumPending);
+                    pageNumPending = null;
+                }
+                
+                // Re-render highlights after page is rendered
+                renderHighlights();
+            });
+        });
+        
+        document.getElementById('page-num').textContent = `Page: ${num}/${pdfDoc.numPages}`;
+    }
+    
+    // Queue render page
+    function queueRenderPage(num) {
+        if (pageRendering) {
+            pageNumPending = num;
+        } else {
+            renderPage(num);
+        }
+    }
+    
+    // Render highlights
+    function renderHighlights() {
+        // Clear existing highlight elements
+        document.querySelectorAll('.highlight').forEach(el => el.remove());
+        
+        // Create a temporary canvas for highlights
+        const highlightCanvas = document.createElement('canvas');
+        highlightCanvas.width = pdfCanvas.width;
+        highlightCanvas.height = pdfCanvas.height;
+        highlightCanvas.style.position = 'absolute';
+        highlightCanvas.style.top = pdfCanvas.offsetTop + 'px';
+        highlightCanvas.style.left = pdfCanvas.offsetLeft + 'px';
+        highlightCanvas.style.pointerEvents = 'none';
+        highlightCanvas.classList.add('highlight-canvas');
+        
+        // Remove existing highlight canvas
+        document.querySelectorAll('.highlight-canvas').forEach(el => el.remove());
+        
+        // Add the new highlight canvas
+        pdfCanvas.parentNode.appendChild(highlightCanvas);
+        
+        const highlightCtx = highlightCanvas.getContext('2d');
+        
+        // Draw highlights for the current page
+        highlights
+            .filter(h => h.page === pageNum)
+            .forEach(highlight => {
+                // Scale the position based on the current scale
+                const x = highlight.position.x * scale;
+                const y = highlight.position.y * scale;
+                const width = highlight.position.width * scale;
+                const height = highlight.position.height * scale;
+                
+                // Draw highlight
+                highlightCtx.fillStyle = 'rgba(254, 240, 138, 0.5)';
+                highlightCtx.fillRect(x, y, width, height);
+                
+                // Create a clickable area for the highlight
+                const clickableArea = document.createElement('div');
+                clickableArea.className = 'highlight';
+                clickableArea.dataset.id = highlight.id;
+                clickableArea.style.position = 'absolute';
+                clickableArea.style.top = (pdfCanvas.offsetTop + y) + 'px';
+                clickableArea.style.left = (pdfCanvas.offsetLeft + x) + 'px';
+                clickableArea.style.width = width + 'px';
+                clickableArea.style.height = height + 'px';
+                clickableArea.style.cursor = 'pointer';
+                clickableArea.style.zIndex = '10';
+                
+                pdfCanvas.parentNode.appendChild(clickableArea);
+            });
+    }
+    
+    // Update highlights list
+    function updateHighlightsList() {
+        if (highlights.length === 0) {
+            highlightsList.innerHTML = '<p class="text-gray-500 text-sm">No highlights yet</p>';
+            return;
         }
         
-        // Perform RAG search
-        function performRagSearch(query) {
-            // Show loading state
-            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div></div>';
+        highlightsList.innerHTML = '';
+        
+        highlights.forEach(highlight => {
+            const highlightItem = document.createElement('div');
+            highlightItem.className = 'bg-gray-50 p-3 rounded-lg';
+            highlightItem.dataset.id = highlight.id;
             
-            // Send search query via WebSocket
-            if (ws.readyState === WebSocket.OPEN) {
+            let tagsHtml = '';
+            if (highlight.tags && highlight.tags.length > 0) {
+                tagsHtml = highlight.tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+            }
+            
+            highlightItem.innerHTML = `
+                <div class="text-sm font-medium mb-1">${escapeHtml(highlight.text.substring(0, 50))}${highlight.text.length > 50 ? '...' : ''}</div>
+                <div class="text-xs text-gray-500 mb-2">Page ${highlight.page}</div>
+                ${tagsHtml ? `<div class="mb-2">${tagsHtml}</div>` : ''}
+                ${highlight.comment ? `<div class="text-xs text-gray-600 italic">${escapeHtml(highlight.comment)}</div>` : ''}
+            `;
+            
+            highlightItem.addEventListener('click', () => {
+                // Navigate to the page of the highlight
+                if (highlight.page !== pageNum) {
+                    pageNum = highlight.page;
+                    queueRenderPage(pageNum);
+                }
+                
+                // Select the highlight
+                selectedHighlightId = highlight.id;
+                selectedText = highlight.text;
+            });
+            
+            highlightsList.appendChild(highlightItem);
+        });
+    }
+    
+    // Show annotation popup
+    function showAnnotationPopup(type) {
+        annotationPopup.style.display = 'block';
+        annotationBackdrop.style.display = 'block';
+        
+        if (type === 'comment') {
+            document.getElementById('annotation-comment').focus();
+        } else if (type === 'tag') {
+            document.getElementById('annotation-tags').focus();
+        }
+        
+        // Pre-fill with existing data if available
+        if (selectedHighlightId !== null) {
+            const highlight = highlights.find(h => h.id === selectedHighlightId);
+            if (highlight) {
+                document.getElementById('annotation-comment').value = highlight.comment || '';
+                document.getElementById('annotation-tags').value = highlight.tags ? highlight.tags.join(', ') : '';
+            }
+        }
+        
+        highlightMenu.style.display = 'none';
+    }
+    
+    // Export highlights
+    function exportHighlights() {
+        if (highlights.length === 0) {
+            showNotification('No highlights to export', 'warning');
+            return;
+        }
+        
+        const exportData = {
+            file: currentFile ? currentFile.name : 'Unknown',
+            exportDate: new Date().toISOString(),
+            highlights: highlights
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = `highlights_${currentFile ? currentFile.name.replace(/\.[^/.]+$/, "") : 'document'}_${new Date().toISOString().slice(0, 10)}.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        
+        showNotification('Highlights exported successfully', 'success');
+    }
+    
+    // Perform RAG search
+    function performRagSearch(query) {
+        // Show loading state
+        ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div></div>';
+        
+        // Send search query via WebSocket
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'query',
+                content: query
+            }));
+        } else {
+            // Simulate search results for demo purposes
+            setTimeout(() => {
+                displayRagSearchResults([
+                    {
+                        title: 'Document Section 1',
+                        content: 'This is a sample result that matches your search query...',
+                        relevance: 0.92,
+                        source: 'document1.pdf'
+                    },
+                    {
+                        title: 'Document Section 2',
+                        content: 'Another relevant result from a different document...',
+                        relevance: 0.87,
+                        source: 'document2.pdf'
+                    }
+                ]);
+            }, 1000);
+        }
+    }
+    
+    // Display RAG search results
+    function displayRagSearchResults(results) {
+        if (!results || results.length === 0) {
+            ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No results found</p>';
+            return;
+        }
+        
+        ragSearchResults.innerHTML = '';
+        
+        results.forEach(result => {
+            const resultItem = document.createElement('div');
+            resultItem.className = 'bg-gray-50 p-4 rounded-lg mb-3';
+            
+            resultItem.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-medium">${escapeHtml(result.title)}</h4>
+                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${Math.round((result.relevance_score || result.relevance || 0) * 100)}% match</span>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">${escapeHtml(result.text || result.content)}</p>
+                <div class="text-xs text-gray-500">Source: ${escapeHtml(result.metadata?.document_name || result.source || 'Unknown')}</div>
+                <div class="mt-2">
+                    <button class="text-xs text-blue-600 hover:text-blue-800 mr-3 view-result" data-id="${result.id}">
+                        <i class="bi bi-eye mr-1"></i>View
+                    </button>
+                    <button class="text-xs text-blue-600 hover:text-blue-800 ask-about-result" data-id="${result.id}">
+                        <i class="bi bi-question-circle mr-1"></i>Ask about this
+                    </button>
+                </div>
+            `;
+            
+            ragSearchResults.appendChild(resultItem);
+        });
+        
+        // Add event listeners to buttons
+        document.querySelectorAll('.view-result').forEach(button => {
+            button.addEventListener('click', () => {
+                // In a real implementation, this would navigate to the document and section
+                showNotification('Navigating to result...', 'info');
+                ragSearchModal.classList.add('hidden');
+            });
+        });
+        
+        document.querySelectorAll('.ask-about-result').forEach(button => {
+            button.addEventListener('click', () => {
+                const resultId = button.dataset.id;
+                const result = results.find(r => r.id === resultId);
+                if (result) {
+                    messageInput.value = `Explain this result: "${result.title || result.text}"`;
+                    ragSearchModal.classList.add('hidden');
+                    messageInput.focus();
+                }
+            });
+        });
+    }
+    
+    // Send message function
+    function sendMessage(event) {
+        event.preventDefault();
+        const messageText = messageInput.value.trim();
+        
+        if (messageText) {
+            // Add message to chat
+            addMessageToChat(messageText, 'user');
+            
+            // Save to conversation history
+            saveMessageToHistory(messageText, 'user');
+            
+            // Send message via WebSocket
+            if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                    type: 'rag_search',
-                    query: query,
-                    model: currentModel
+                    type: 'query',
+                    content: messageText
                 }));
             } else {
-                // Simulate search results for demo purposes
-                setTimeout(() => {
-                    displayRagSearchResults([
-                        {
-                            title: 'Document Section 1',
-                            content: 'This is a sample result that matches your search query...',
-                            relevance: 0.92,
-                            source: 'document1.pdf'
-                        },
-                        {
-                            title: 'Document Section 2',
-                            content: 'Another relevant result from a different document...',
-                            relevance: 0.87,
-                            source: 'document2.pdf'
-                        }
-                    ]);
-                }, 1000);
-            }
-        }
-        
-        // Display RAG search results
-        function displayRagSearchResults(results) {
-            if (!results || results.length === 0) {
-                ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No results found</p>';
-                return;
-            }
-            
-            ragSearchResults.innerHTML = '';
-            
-            results.forEach(result => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'bg-gray-50 p-4 rounded-lg mb-3';
+                // Show error if WebSocket is not connected
+                showNotification('WebSocket not connected. Please wait for connection.', 'error');
                 
-                resultItem.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-medium">${result.title}</h4>
-                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${Math.round(result.relevance * 100)}% match</span>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-2">${result.content}</p>
-                    <div class="text-xs text-gray-500">Source: ${result.source}</div>
-                    <div class="mt-2">
-                        <button class="text-xs text-blue-600 hover:text-blue-800 mr-3 view-result" data-id="${result.id}">
-                            <i class="bi bi-eye mr-1"></i>View
-                        </button>
-                        <button class="text-xs text-blue-600 hover:text-blue-800 ask-about-result" data-id="${result.id}">
-                            <i class="bi bi-question-circle mr-1"></i>Ask about this
-                        </button>
-                    </div>
-                `;
-                
-                ragSearchResults.appendChild(resultItem);
-            });
-            
-            // Add event listeners to buttons
-            document.querySelectorAll('.view-result').forEach(button => {
-                button.addEventListener('click', () => {
-                    // In a real implementation, this would navigate to the document and section
-                    showNotification('Navigating to result...', 'info');
-                    ragSearchModal.classList.add('hidden');
-                });
-            });
-            
-            document.querySelectorAll('.ask-about-result').forEach(button => {
-                button.addEventListener('click', () => {
-                    const resultId = button.dataset.id;
-                    const result = results.find(r => r.id === resultId);
-                    if (result) {
-                        messageInput.value = `Explain this result: "${result.title}"`;
-                        ragSearchModal.classList.add('hidden');
-                        messageInput.focus();
-                    }
-                });
-            });
-        }
-        
-        // Send message function
-        function sendMessage(event) {
-            event.preventDefault();
-            const messageText = messageInput.value.trim();
-            
-            if (messageText) {
-                // Add message to chat
-                addMessageToChat(messageText, 'user');
-                
-                // Save to conversation history
-                saveMessageToHistory(messageText, 'user');
-                
-                // Send message via WebSocket
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: 'message',
-                        content: messageText,
-                        model: currentModel,
-                        conversation_id: currentConversationId
-                    }));
-                } else {
-                    // Simulate bot response for demo purposes
-                    setTimeout(() => {
-                        const botResponse = `This is a simulated response to: "${messageText}"`;
-                        addMessageToChat(botResponse, 'bot');
-                        saveMessageToHistory(botResponse, 'bot');
-                    }, 1000);
+                // Attempt to reconnect
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    connectWebSocket();
                 }
-                
-                // Clear input
-                messageInput.value = '';
             }
+            
+            // Clear input
+            messageInput.value = '';
+        }
+    }
+    
+    // Add message to chat
+    function addMessageToChat(message, sender) {
+        const messageDiv = document.createElement('div');
+        
+        // Use more structured message layout
+        if (sender === 'user') {
+            messageDiv.className = 'flex justify-end mb-4';
+            messageDiv.innerHTML = `
+                <div class="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-lg bg-blue-500 text-white">
+                    <div>${escapeHtml(message)}</div>
+                    <div class="text-xs opacity-75 mt-1 text-right">${formatTime(new Date())}</div>
+                </div>
+            `;
+        } else {
+            messageDiv.className = 'flex justify-start mb-4';
+            messageDiv.innerHTML = `
+                <div class="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-lg bg-gray-200 text-gray-800">
+                    <div>${escapeHtml(message)}</div>
+                    <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
+                </div>
+            `;
         }
         
-        // Add message to chat
-        function addMessageToChat(message, sender) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
-            messageDiv.textContent = message;
-            
-            messages.appendChild(messageDiv);
-            messages.scrollTop = messages.scrollHeight;
-            
-            // Remove the placeholder message if it exists
-            const placeholder = messages.querySelector('.text-center');
-            if (placeholder) {
-                placeholder.remove();
-            }
-        }
+        messages.appendChild(messageDiv);
+        messages.scrollTop = messages.scrollHeight;
         
-        // Save message to conversation history
-        function saveMessageToHistory(message, sender) {
-            if (!currentConversationId) {
-                currentConversationId = Date.now().toString();
-                conversationHistory.push({
-                    id: currentConversationId,
-                    title: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
-                    date: new Date().toISOString(),
-                    messages: []
-                });
-                updateConversationHistoryUI();
-            }
-            
-            const conversation = conversationHistory.find(c => c.id === currentConversationId);
-            if (conversation) {
-                conversation.messages.push({
-                    content: message,
-                    sender: sender,
-                    timestamp: new Date().toISOString()
-                });
-            }
-            
-            // Save to localStorage
-            localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+        // Remove the placeholder message if it exists
+        const placeholder = messages.querySelector('.text-center');
+        if (placeholder) {
+            placeholder.remove();
         }
-        
-        // Load conversation history
-        function loadConversationHistory() {
-            const savedHistory = localStorage.getItem('conversationHistory');
-            if (savedHistory) {
-                conversationHistory = JSON.parse(savedHistory);
-                updateConversationHistoryUI();
-            }
-        }
-        
-        // Update conversation history UI
-        function updateConversationHistoryUI() {
-            conversationHistoryContainer.innerHTML = '';
-            
-            if (conversationHistory.length === 0) {
-                conversationHistoryContainer.innerHTML = '<p class="text-gray-500 text-sm text-center py-2">No conversation history</p>';
-                return;
-            }
-            
-            conversationHistory.forEach(conversation => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.dataset.id = conversation.id;
-                
-                if (conversation.id === currentConversationId) {
-                    historyItem.classList.add('active');
-                }
-                
-                const date = new Date(conversation.date);
-                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                
-                historyItem.innerHTML = `
-                    <div class="font-medium text-sm">${conversation.title}</div>
-                    <div class="text-xs text-gray-500">${formattedDate}</div>
-                `;
-                
-                historyItem.addEventListener('click', () => {
-                    loadConversation(conversation.id);
-                });
-                
-                conversationHistoryContainer.appendChild(historyItem);
+    }
+    
+    // Save message to conversation history
+    function saveMessageToHistory(message, sender) {
+        if (!currentConversationId) {
+            currentConversationId = Date.now().toString();
+            conversationHistory.push({
+                id: currentConversationId,
+                title: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
+                date: new Date().toISOString(),
+                messages: []
             });
-        }
-        
-        // Load conversation
-        function loadConversation(conversationId) {
-            const conversation = conversationHistory.find(c => c.id === conversationId);
-            if (!conversation) return;
-            
-            currentConversationId = conversationId;
-            
-            // Clear current messages
-            messages.innerHTML = '';
-            
-            // Load conversation messages
-            conversation.messages.forEach(msg => {
-                addMessageToChat(msg.content, msg.sender);
-            });
-            
-            // Update UI
             updateConversationHistoryUI();
         }
         
-        // Update progress bar
-        function updateProgressBar(percent) {
-            document.getElementById('progress-bar').style.width = percent + '%';
+        const conversation = conversationHistory.find(c => c.id === currentConversationId);
+        if (conversation) {
+            conversation.messages.push({
+                content: message,
+                sender: sender,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Update conversation title if it's the first user message
+            if (sender === 'user' && conversation.messages.filter(m => m.sender === 'user').length === 1) {
+                conversation.title = message.substring(0, 30) + (message.length > 30 ? '...' : '');
+                updateConversationHistoryUI();
+            }
         }
         
-        // Show notification
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
-                type === 'success' ? 'bg-green-500 text-white' :
-                type === 'error' ? 'bg-red-500 text-white' :
-                type === 'warning' ? 'bg-yellow-500 text-white' :
-                'bg-blue-500 text-white'
-            }`;
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
+        // Save to localStorage
+        localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+    }
+    
+    // Load conversation history
+    function loadConversationHistory() {
+        const savedHistory = localStorage.getItem('conversationHistory');
+        if (savedHistory) {
+            conversationHistory = JSON.parse(savedHistory);
+            updateConversationHistoryUI();
+        }
+    }
+    
+    // Update conversation history UI
+    function updateConversationHistoryUI() {
+        conversationHistoryContainer.innerHTML = '';
+        
+        if (conversationHistory.length === 0) {
+            conversationHistoryContainer.innerHTML = '<p class="text-gray-500 text-sm text-center py-2">No conversation history</p>';
+            return;
         }
         
-        // Sections for dynamic content
-        const sections = [
-            { id: 1, title: 'Introduction', content: 'Welcome to the comprehensive document viewer.' },
-            { id: 2, title: 'Chapter 1', content: 'Detailed information about Chapter 1.' },
-            { id: 3, title: 'Chapter 2', content: 'In-depth exploration of Chapter 2.' }
-        ];
+        conversationHistory.forEach(conversation => {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.dataset.id = conversation.id;
+            
+            if (conversation.id === currentConversationId) {
+                historyItem.classList.add('active');
+            }
+            
+            const date = new Date(conversation.date);
+            const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            
+            historyItem.innerHTML = `
+                <div class="font-medium text-sm">${escapeHtml(conversation.title)}</div>
+                <div class="text-xs text-gray-500">${formattedDate}</div>
+            `;
+            
+            historyItem.addEventListener('click', () => {
+                loadConversation(conversation.id);
+            });
+            
+            conversationHistoryContainer.appendChild(historyItem);
+        });
+    }
+    
+    // Load conversation
+    function loadConversation(conversationId) {
+        const conversation = conversationHistory.find(c => c.id === conversationId);
+        if (!conversation) return;
         
-        // Populate tabs dynamically
-        const tabsContainer = document.getElementById('tabs');
-        sections.forEach(section => {
-            const tab = document.createElement('li');
-            tab.textContent = section.title;
-            tab.classList.add('cursor-pointer', 'px-3', 'py-2', 'hover:bg-gray-100', 'rounded');
-            tab.addEventListener('click', () => loadSection(section));
-            tabsContainer.appendChild(tab);
+        currentConversationId = conversationId;
+        
+        // Clear current messages
+        messages.innerHTML = '';
+        
+        // Load conversation messages
+        conversation.messages.forEach(msg => {
+            addMessageToChat(msg.content, msg.sender);
         });
         
-        // Load section content
-        function loadSection(section) {
-            currentSection = section;
-            const contentArea = document.getElementById('document-content');
-            contentArea.innerHTML = `<div class="prose max-w-none">${section.content}</div>`;
-            document.getElementById('breadcrumbs').textContent = section.title;
-            
-            // Show document content, hide PDF preview
-            documentContent.classList.remove('hidden');
-            pdfPreview.classList.add('hidden');
-            
-            // Update active tab
-            document.querySelectorAll('#tabs li').forEach(tab => {
-                tab.classList.remove('bg-blue-50', 'text-blue-600', 'font-medium');
-                if (tab.textContent === section.title) {
-                    tab.classList.add('bg-blue-50', 'text-blue-600', 'font-medium');
-                }
-            });
+        // Update UI
+        updateConversationHistoryUI();
+    }
+    
+    // Update progress bar
+    function updateProgressBar(percent) {
+        document.getElementById('progress-bar').style.width = percent + '%';
+    }
+    
+    // Show notification
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            type === 'warning' ? 'bg-yellow-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    // Helper function to format time
+    function formatTime(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Sections for dynamic content
+    const sections = [
+        { id: 1, title: 'Introduction', content: 'Welcome to the comprehensive document viewer.' },
+        { id: 2, title: 'Chapter 1', content: 'Detailed information about Chapter 1.' },
+        { id: 3, title: 'Chapter 2', content: 'In-depth exploration of Chapter 2.' }
+    ];
+    
+    // Populate tabs dynamically
+    const tabsContainer = document.getElementById('tabs');
+    sections.forEach(section => {
+        const tab = document.createElement('li');
+        tab.textContent = section.title;
+        tab.classList.add('cursor-pointer', 'px-3', 'py-2', 'hover:bg-gray-100', 'rounded');
+        tab.addEventListener('click', () => loadSection(section));
+        tabsContainer.appendChild(tab);
+    });
+    
+    // Load section content
+    function loadSection(section) {
+        currentSection = section;
+        const contentArea = document.getElementById('document-content');
+        contentArea.innerHTML = `<div class="prose max-w-none">${escapeHtml(section.content)}</div>`;
+        document.getElementById('breadcrumbs').textContent = section.title;
+        
+        // Show document content, hide PDF preview
+        documentContent.classList.remove('hidden');
+        pdfPreview.classList.add('hidden');
+        
+        // Update active tab
+        document.querySelectorAll('#tabs li').forEach(tab => {
+            tab.classList.remove('bg-blue-50', 'text-blue-600', 'font-medium');
+            if (tab.textContent === section.title) {
+                tab.classList.add('bg-blue-50', 'text-blue-600', 'font-medium');
+            }
+        });
+    }
+    
+    // Search functionality
+    document.getElementById('search-box').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const searchResults = document.getElementById('search-results');
+        
+        if (!query) {
+            searchResults.classList.add('hidden');
+            return;
         }
         
-        // Search functionality
-        document.getElementById('search-box').addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const searchResults = document.getElementById('search-results');
-            
-            if (!query) {
+        searchResults.innerHTML = '';
+        searchResults.classList.remove('hidden');
+        
+        const filteredSections = sections.filter(section => 
+            section.title.toLowerCase().includes(query) || 
+            section.content.toLowerCase().includes(query)
+        );
+        
+        if (filteredSections.length === 0) {
+            searchResults.innerHTML = '<div class="p-2 text-gray-500">No results found</div>';
+            return;
+        }
+        
+        filteredSections.forEach(section => {
+            const resultItem = document.createElement('div');
+            resultItem.textContent = section.title;
+            resultItem.classList.add('cursor-pointer', 'p-2', 'hover:bg-gray-100', 'rounded');
+            resultItem.addEventListener('click', () => {
+                loadSection(section);
                 searchResults.classList.add('hidden');
-                return;
-            }
-            
-            searchResults.innerHTML = '';
-            searchResults.classList.remove('hidden');
-            
-            const filteredSections = sections.filter(section => 
-                section.title.toLowerCase().includes(query) || 
-                section.content.toLowerCase().includes(query)
-            );
-            
-            if (filteredSections.length === 0) {
-                searchResults.innerHTML = '<div class="p-2 text-gray-500">No results found</div>';
-                return;
-            }
-            
-            filteredSections.forEach(section => {
-                const resultItem = document.createElement('div');
-                resultItem.textContent = section.title;
-                resultItem.classList.add('cursor-pointer', 'p-2', 'hover:bg-gray-100', 'rounded');
-                resultItem.addEventListener('click', () => {
-                    loadSection(section);
-                    searchResults.classList.add('hidden');
-                    document.getElementById('search-box').value = '';
-                });
-                searchResults.appendChild(resultItem);
+                document.getElementById('search-box').value = '';
             });
+            searchResults.appendChild(resultItem);
         });
-    </script>
+    });
+</script>
 </body>
 </html>
