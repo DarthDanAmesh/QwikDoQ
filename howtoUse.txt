@@ -21,6 +21,7 @@ It ensures that the generated content remains connected to the source material.
 
 https://medium.com/adevinta-tech-blog/data-engineer-2-0-part-i-large-language-models-7b745c4683e4
 https://adevinta.com/techblog/data-engineer-2-0-part-ii-retrieval-augmented-generation/
+https://syrenis.com/resources/blog/feeding-llms-without-risking-privacy/
 
 
 RUN IN LINUX ENVIRONMENT
