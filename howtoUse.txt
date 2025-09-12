@@ -1,6 +1,12 @@
 $uvicorn lama:app --reload --port 8000
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+so far the milvus response time is (With 11 paged attention is all you need document) is roughly 30 seconds:
+
+2025-09-12 17:39:45,998 - INFO - Indexing complete. Total documents indexed: 0
+2025-09-12 17:40:25,790 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"  -- time when prompt is sent
+2025-09-12 17:40:49,166 - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK" -- time response is received 
+
 
 FUTURE UPDATE IS TO CONSIDER GOING HYBRID WITH MILVUS SUPPORT:
 

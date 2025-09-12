@@ -138,16 +138,6 @@ class KnowledgeBaseIndexer:
                  indexed_directory=INDEXED_DIRECTORY,
                  max_workers=4):
         
-        """
-        Initialize Milvus collection for indexing documents
-        
-        Args:
-            collection_name (str): Name of the Milvus collection
-            ollama_url (str): URL of the Ollama server
-            indexed_directory (str): Directory containing indexed text files
-            max_workers (int): Maximum number of parallel workers for indexing
-        """
-        
         # Store configuration
         self.collection_name = collection_name
         self.ollama_url = ollama_url
@@ -162,6 +152,13 @@ class KnowledgeBaseIndexer:
         except Exception as e:
             logger.error(f"Failed to initialize Milvus client: {e}")
             raise
+        
+        # Initialize Ollama client for embeddings - store URL for later use
+        self.ollama_host = ollama_url.replace("/api/embeddings", "")
+        self.ollama_client = None  # Will be initialized when needed
+        logger.info("Ollama client will be initialized on first use")
+        
+        # Rest of your initialization code...
         
         # Initialize Ollama client for embeddings
         try:
@@ -219,9 +216,9 @@ class KnowledgeBaseIndexer:
         index_params = self.milvus_client.prepare_index_params()
         index_params.add_index(
             field_name="vector",
-            index_type="HNSW",  # Hierarchical Navigable Small World for efficient search
+            index_type="IVF_FLAT",  # Hierarchical Navigable Small World for efficient search. HNSW; supported in local mode. 
             metric_type="IP",
-            params={"M": 16, "efConstruction": 64}
+            params={"nlist": 128}
         )
         
         self.milvus_client.create_index(
@@ -255,15 +252,40 @@ class KnowledgeBaseIndexer:
     
     async def _get_embedding(self, text):
         """Get embedding for text using Ollama"""
-        try:
-            response = await self.ollama_client.embeddings(
-                model="embeddinggemma:latest",
-                prompt=text
-            )
-            return response["embedding"]
-        except Exception as e:
-            logger.error(f"Error generating embedding: {e}")
-            raise
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Initialize client if needed or reconnect if disconnected
+                if self.ollama_client is None:
+                    self.ollama_client = AsyncClient(host=self.ollama_host)
+                    logger.info("Initialized new Ollama client")
+                
+                response = await self.ollama_client.embeddings(
+                    model="embeddinggemma:latest",
+                    prompt=text
+                )
+                return response["embedding"]
+                
+            except Exception as e:
+                logger.error(f"Error generating embedding (attempt {attempt+1}/{max_retries}): {e}")
+                
+                # Close the existing client if it exists
+                if self.ollama_client:
+                    try:
+                        await self.ollama_client.close()
+                    except:
+                        pass
+                    self.ollama_client = None
+                
+                # Wait before retrying (except on the last attempt)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+        
+        # If all retries failed, raise the last exception
+        raise Exception(f"Failed to generate embedding after {max_retries} attempts")
     
     def _process_file(self, file_path: str, file_name: str) -> Optional[Dict]:
         """Process a single file for indexing"""
@@ -399,17 +421,23 @@ class KnowledgeBaseIndexer:
                         batch_end = min(i + batch_size, len(ids))
                         
                         try:
+                            # Prepare the list of data to insert
+                            data_to_insert = []
+                            for j in range(i, batch_end):
+                                data_to_insert.append({
+                                    "id": ids[j],
+                                    "vector": vectors[j],
+                                    "text": texts[j],
+                                    "document_name": document_names[j],
+                                    "file_path": file_paths[j],
+                                    "file_hash": file_hashes[j],
+                                    "timestamp": timestamps[j]
+                                })
+
+                            # Execute batch insert
                             self.milvus_client.insert(
                                 collection_name=self.collection_name,
-                                data={
-                                    "id": ids[i:batch_end],
-                                    "vector": vectors[i:batch_end],
-                                    "text": texts[i:batch_end],
-                                    "document_name": document_names[i:batch_end],
-                                    "file_path": file_paths[i:batch_end],
-                                    "file_hash": file_hashes[i:batch_end],
-                                    "timestamp": timestamps[i:batch_end]
-                                }
+                                data=data_to_insert
                             )
                             
                             # Update indexed files cache
@@ -482,7 +510,10 @@ class KnowledgeBaseIndexer:
                 data=[query_embedding],
                 limit=n_results,
                 output_fields=["text", "document_name", "file_path", "file_hash", "timestamp"],
-                param={"metric_type": "IP"}
+                search_params={  # Changed from 'param' to 'search_params'
+                    "metric_type": "IP",
+                    "params": {"nprobe": 10}
+                }
             )
             
             # Prepare results with full context
@@ -539,8 +570,15 @@ class ChatbotService:
             knowledge_base (KnowledgeBaseIndexer, optional): Indexed knowledge base
         """
         self.knowledge_base = knowledge_base
-        self.llm_client = AsyncClient()
+        self.ollama_host = "http://localhost:11434"  # Default Ollama host
+        self.llm_client = None  # Will be initialized when needed
         self.logger = logging.getLogger(__name__)
+    
+    async def _get_llm_client(self):
+        """Get or create LLM client with proper error handling"""
+        if self.llm_client is None:
+            self.llm_client = AsyncClient(host=self.ollama_host)
+        return self.llm_client
     
     async def generate_response(self, query):
         """
@@ -552,59 +590,71 @@ class ChatbotService:
         Returns:
             str: Generated response
         """
-        try:
-            # If knowledge base exists, try to retrieve relevant context
-            context_results = []
-            if self.knowledge_base:
-                try:
-                    context_results = await self.knowledge_base.search_documents(query)
-                except Exception as context_error:
-                    print(f"Context retrieval error: {context_error}")
-            
-            # Prepare the prompt
-            if context_results:
-                # If context is found, create an enhanced prompt
-                context_str = "\n\n".join([
-                    f"[{result['metadata'].get('document_name', 'Unknown Document')}] "
-                    f"Relevance: {result['relevance_score']:.2f}\n"
-                    f"{result['text']}"
-                    for result in context_results
-                ])
-                
-                enhanced_prompt = f"""
-                Context from indexed documents:
-                {context_str}
-                User Query: {query}
-                Please provide a comprehensive answer based on the given context. 
-                If the context doesn't fully answer the query, use your general knowledge 
-                to supplement the response and indicate what additional information might be needed.
-                """
-            else:
-                # If no context, use the query directly
-                enhanced_prompt = query
-            
-            # Generate response using Ollama
-            response = await self.llm_client.chat(
-                model="qwen2:0.5b",
-                messages=[{"role": "user", "content": enhanced_prompt}],
-                stream=False
-            )
-            
-            return response["message"]["content"]
+        max_retries = 3
+        retry_delay = 1  # seconds
         
-        except Exception as e:
-            # Fallback to a general response if any error occurs
-            print(f"Error in generate_response: {e}")
+        for attempt in range(max_retries):
             try:
-                # Try to generate a response without context
-                response = await self.llm_client.chat(
+                # If knowledge base exists, try to retrieve relevant context
+                context_results = []
+                if self.knowledge_base:
+                    try:
+                        context_results = await self.knowledge_base.search_documents(query)
+                    except Exception as context_error:
+                        self.logger.error(f"Context retrieval error: {context_error}")
+                
+                # Prepare the prompt
+                if context_results:
+                    # If context is found, create an enhanced prompt
+                    context_str = "\n\n".join([
+                        f"[{result['metadata'].get('document_name', 'Unknown Document')}] "
+                        f"Relevance: {result['relevance_score']:.2f}\n"
+                        f"{result['text']}"
+                        for result in context_results
+                    ])
+                    
+                    enhanced_prompt = f"""
+                    Context from indexed documents:
+                    {context_str}
+                    User Query: {query}
+                    Please provide a comprehensive answer based on the given context. 
+                    If the context doesn't fully answer the query, use your general knowledge 
+                    to supplement the response and indicate what additional information might be needed.
+                    """
+                else:
+                    # If no context, use the query directly
+                    enhanced_prompt = query
+                
+                # Get or create client
+                client = await self._get_llm_client()
+                
+                # Generate response using Ollama
+                response = await client.chat(
                     model="qwen2:0.5b",
-                    messages=[{"role": "user", "content": query}],
+                    messages=[{"role": "user", "content": enhanced_prompt}],
                     stream=False
                 )
+                
                 return response["message"]["content"]
-            except Exception as fallback_error:
-                return f"I'm sorry, but I'm having trouble processing your query. Error: {str(fallback_error)}"
+            
+            except Exception as e:
+                self.logger.error(f"Error in generate_response (attempt {attempt+1}/{max_retries}): {e}")
+                
+                # Close the existing client if it exists
+                if self.llm_client:
+                    try:
+                        await self.llm_client.close()
+                    except:
+                        pass
+                    self.llm_client = None
+                
+                # Wait before retrying (except on the last attempt)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+        
+        # If all retries failed, return a fallback response
+        return f"I'm sorry, but I'm having trouble processing your query. Please try again later."
 
 # Application state management
 class AppState:
@@ -676,6 +726,7 @@ class ConnectionManager:
             except:
                 # Connection might be closed
                 pass
+
 
 manager = ConnectionManager()
 
@@ -952,6 +1003,31 @@ async def reindex_documents(background_tasks: BackgroundTasks):
                 "message": str(e)
             }
         )
+    
+
+@app.get("/health/ollama")
+async def check_ollama_health():
+    """Check if Ollama service is accessible"""
+    try:
+        # Try to connect to Ollama
+        client = AsyncClient(host="http://localhost:11434")
+        # Simple check - list available models
+        models = await client.list()
+        await client.close()
+        
+        return {
+            "status": "healthy",
+            "message": "Ollama service is accessible",
+            "models_count": len(models.get("models", []))
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "message": f"Ollama service is not accessible: {str(e)}"
+            }
+        )
 
 @app.get("/status/")
 async def get_status():
@@ -1000,6 +1076,48 @@ async def get_collection_info():
                 "message": str(e)
             }
         )
+    
+async def close_ollama_connections():
+    """Close all Ollama client connections"""
+    try:
+        # Close knowledge base indexer client
+        if app_state.initialized and app_state.knowledge_base_indexer:
+            if app_state.knowledge_base_indexer.ollama_client:
+                await app_state.knowledge_base_indexer.ollama_client.close()
+                app_state.knowledge_base_indexer.ollama_client = None
+        
+        # Close any other clients as needed
+        logger.info("Ollama connections closed")
+    except Exception as e:
+        logger.error(f"Error closing Ollama connections: {e}")
+
+# Update the lifespan context manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background indexing on application startup"""
+    # Initialize the knowledge base
+    app_state.initialize()
+    
+    # Start indexing in background without blocking startup
+    def background_index():
+        try:
+            logger.info("Starting background indexing")
+            app_state.knowledge_base_indexer.index_documents()
+            logger.info("Background indexing completed")
+        except Exception as e:
+            logger.error(f"Background indexing failed: {e}")
+            indexing_status.update(error=str(e))
+    
+    # Start indexing in a daemon thread
+    indexing_thread = threading.Thread(target=background_index, daemon=True)
+    indexing_thread.start()
+    
+    yield
+    
+    # Cleanup code - close connections
+    logger.info("Application shutting down, closing connections")
+    await close_ollama_connections()
+    logger.info("Application shutdown complete")
 
 if __name__ == "__main__":
     import uvicorn
