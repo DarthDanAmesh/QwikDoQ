@@ -1,12 +1,91 @@
 $uvicorn lama:app --reload --port 8000
+ANALYSIS OF VERSION2 OF MILVUS :
+-----------------------v2 of milvus -------------------------------
 
+
+INFO:     127.0.0.1:42196 - "POST /upload/ HTTP/1.1" 200 OK
+2025-09-12 18:23:00,363 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:07,806 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:11,336 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:17,435 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:22,512 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:27,747 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:30,789 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:36,162 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:42,380 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:44,944 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:46,940 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:23:46,968 - INFO - Indexed batch of 11 documents
+2025-09-12 18:23:46,970 - INFO - Indexing complete. Total documents indexed: 11
+
+ATTENTION IS NOT ALL YOU NEED TOOK 46-48 SECONDS TO INDEX
+
+indexing time is 46 seconds: for the attention is not all you need: also 11 pages 
+
+2025-09-12 18:29:36,170 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:30:34,657 - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+
+retrieval TIME : 48 SECONDS.
+
+
+
+
+
+--------------------------------------------------------------------------------------
+
+ANALYSIS OF the ORIGINAL VERSION OF MILVUS : MilvusVersion
+
+INDEXING TIME WAS NOT ** RECORDED CLEARLY FOR ATTENTION IS ALL YOU NEED GOOGLE FILE_:4
+------------------------version 1 of milvus_---------------------------
+for version 1
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-so far the milvus response time is (With 11 paged attention is all you need document) is roughly 30 seconds:
+2025-09-12 17:30:55,169 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:30:57,062 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:30:57,722 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:01,467 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:03,552 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:05,386 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:12,863 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:15,090 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:16,274 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:17,385 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:19,389 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+
+time to index 11 pages: 24 SECONDS
+
+INFO:     127.0.0.1:53040 - "POST /upload/ HTTP/1.1" 200 OK
+2025-09-12 17:30:55,169 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:30:57,062 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:30:57,722 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:01,467 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:03,552 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:05,386 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:12,863 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:15,090 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:16,274 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:17,385 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:19,389 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 17:31:19,476 - INFO - Indexed batch of 11 documents
+2025-09-12 17:31:19,477 - INFO - Indexing complete. Total documents indexed: 11
+
+24 SECONDS TO INDEX : ATTENTION IS ALL YOU NEED GOOGLE
+
+
+
+so far the milvus response time after indexing is (With 11 paged attention is all you need document) is roughly 30 seconds:
 
 2025-09-12 17:39:45,998 - INFO - Indexing complete. Total documents indexed: 0
 2025-09-12 17:40:25,790 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"  -- time when prompt is sent
 2025-09-12 17:40:49,166 - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK" -- time response is received 
 
+
+
+FOR THE same DOCUMENT (and same question) check history: ATTENTION IS NOT ALL YOU NEED:
+2025-09-12 18:38:18,018 - INFO - Initialized new Ollama client
+2025-09-12 18:38:18,374 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
+2025-09-12 18:38:53,501 - INFO - HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+
+version original is faster in the response: at 35 seconds (version 2 takes 48 seconds)
 
 FUTURE UPDATE IS TO CONSIDER GOING HYBRID WITH MILVUS SUPPORT:
 
