@@ -12,6 +12,9 @@ chroma_db_new/
 history.txt
 history.txt_old
 indexed/
+.milvus.db.lock
+milvus.db
+*.db
 
 status.json
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
