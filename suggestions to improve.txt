@@ -1,0 +1,1164 @@
+NB:
+
+
+please look into the analysis of the two versions:
+
+in the 
+
+howtoUse.txt:
+
+version 1 is faster (PROMPT AND RESPONSE TIME)
+
+To significantly improve the performance of your RAG application, I'll outline several optimizations across different areas of your codebase. These improvements will speed up API endpoints, document processing, indexing, and search operations.
+
+## 1. Database and Index Optimizations
+
+### 1.1 Improve Milvus Configuration
+
+```python
+def _setup_collection(self):
+    """Set up the Milvus collection with optimized parameters"""
+    # Check if collection exists
+    if self.milvus_client.has_collection(self.collection_name):
+        self.collection = self.collection_name
+        return
+    
+    # Create collection schema
+    schema = self.milvus_client.create_schema(
+        auto_id=False,
+        enable_dynamic_field=True
+    )
+    
+    # Add fields
+    schema.add_field(field_name="id", datatype=DataType.VARCHAR, is_primary=True, max_length=36)
+    schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=self.embedding_dim)
+    schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=65535)
+    schema.add_field(field_name="document_name", datatype=DataType.VARCHAR, max_length=255)
+    schema.add_field(field_name="file_path", datatype=DataType.VARCHAR, max_length=1024)
+    schema.add_field(field_name="file_hash", datatype=DataType.VARCHAR, max_length=64)
+    schema.add_field(field_name="timestamp", datatype=DataType.VARCHAR, max_length=32)
+    
+    # Create collection with optimized settings
+    self.milvus_client.create_collection(
+        collection_name=self.collection_name,
+        schema=schema,
+        metric_type="IP",  # Inner product distance
+        consistency_level="Bounded"  # Less strict than "Strong" for better performance
+    )
+    
+    # Create optimized index on vector field
+    index_params = self.milvus_client.prepare_index_params()
+    
+    # Use HNSW index for better search performance
+    index_params.add_index(
+        field_name="vector",
+        index_type="HNSW",  # Hierarchical Navigable Small World - better for search performance
+        metric_type="IP",
+        params={"M": 16, "efConstruction": 256}  # HNSW-specific parameters
+    )
+    
+    self.milvus_client.create_index(
+        collection_name=self.collection_name,
+        index_params=index_params,
+        # Use async index building for better performance
+        sync=False
+    )
+    
+    self.collection = self.collection_name
+    
+    # Load collection into memory for faster search
+    self.milvus_client.load_collection(
+        collection_name=self.collection_name,
+        replica_number=1  # Number of replicas for load balancing
+    )
+```
+
+### 1.2 Optimize Search Parameters
+
+```python
+async def search_documents(self, query: str, n_results: int = 3) -> List[Dict]:
+    """Search indexed documents with optimized parameters"""
+    # Validate query and results count
+    if not query or not isinstance(query, str):
+        logger.warning("Invalid query provided")
+        return []
+    
+    n_results = max(1, min(n_results, 10))  # Limit results between 1 and 10
+    
+    # Check if collection is empty
+    if self.milvus_client.get_collection_stats(collection_name=self.collection_name)["row_count"] == 0:
+        logger.warning("No documents have been indexed yet")
+        return []
+    
+    try:
+        # Get embedding for the query
+        query_embedding = await self._get_embedding(query)
+        
+        # Perform search with optimized parameters
+        results = self.milvus_client.search(
+            collection_name=self.collection_name,
+            data=[query_embedding],
+            limit=n_results,
+            output_fields=["text", "document_name", "file_path", "file_hash", "timestamp"],
+            search_params={
+                "metric_type": "IP",
+                "params": {"ef": 64}  # HNSW search parameter - higher value = better recall but slower
+            },
+            # Use anns_field parameter to specify which field to search
+            anns_field="vector"
+        )
+        
+        # Prepare results with full context
+        context_results = []
+        
+        for hit in results[0]:
+            entity = hit["entity"]
+            context_results.append({
+                "text": entity.get("text", ""),
+                "metadata": {
+                    "document_name": entity.get("document_name", "Unknown Document"),
+                    "file_path": entity.get("file_path", ""),
+                    "file_hash": entity.get("file_hash", ""),
+                    "timestamp": entity.get("timestamp", "")
+                },
+                "relevance_score": hit["distance"]  # Higher is better for IP
+            })
+        
+        return context_results
+    
+    except Exception as e:
+        logger.error(f"Error searching documents: {e}")
+        traceback.print_exc()
+        return []
+```
+
+## 2. Embedding Generation Optimizations
+
+### 2.1 Implement Batch Embedding Generation
+
+```python
+async def _get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+    """Get embeddings for multiple texts in a single batch request"""
+    if not texts:
+        return []
+    
+    max_retries = 3
+    retry_delay = 1  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            # Initialize client if needed
+            if self.ollama_client is None:
+                self.ollama_client = AsyncClient(host=self.ollama_host)
+                logger.info("Initialized new Ollama client")
+            
+            # Process in batches to avoid overwhelming the model
+            batch_size = 8  # Adjust based on your model's capacity
+            all_embeddings = []
+            
+            for i in range(0, len(texts), batch_size):
+                batch_texts = texts[i:i+batch_size]
+                
+                # Create multiple embedding requests in parallel
+                tasks = [
+                    self.ollama_client.embeddings(
+                        model="embeddinggemma:latest",
+                        prompt=text
+                    ) for text in batch_texts
+                ]
+                
+                # Execute all requests in parallel
+                responses = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Process responses
+                for j, response in enumerate(responses):
+                    if isinstance(response, Exception):
+                        logger.error(f"Error generating embedding for text {i+j}: {response}")
+                        # Use a zero vector as fallback
+                        all_embeddings.append([0.0] * self.embedding_dim)
+                    else:
+                        all_embeddings.append(response["embedding"])
+            
+            return all_embeddings
+            
+        except Exception as e:
+            logger.error(f"Error generating embeddings batch (attempt {attempt+1}/{max_retries}): {e}")
+            
+            # Close the existing client if it exists
+            if self.ollama_client:
+                try:
+                    await self.ollama_client.close()
+                except:
+                    pass
+                self.ollama_client = None
+            
+            # Wait before retrying
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+    
+    # If all retries failed, return zero vectors
+    return [[0.0] * self.embedding_dim for _ in range(len(texts))]
+```
+
+### 2.2 Update Indexing to Use Batch Embeddings
+
+```python
+def index_documents(self, document_paths: str = None, document_name: Optional[str] = None) -> int:
+    """Index documents with optimized batch processing"""
+    # Use provided directory or default
+    document_paths = document_paths or self.indexed_directory
+    
+    # Validate directory exists
+    if not os.path.isdir(document_paths):
+        logger.error(f"Directory not found: {document_paths}")
+        return 0
+    
+    # Update status
+    indexing_status.update(
+        is_indexing=True,
+        status_message="Preparing to index documents",
+        progress=0,
+        error=None
+    )
+    
+    # List all text files in the directory
+    text_files = [f for f in os.listdir(document_paths) if f.endswith('.txt')]
+    
+    if not text_files:
+        logger.warning("No text files found for indexing")
+        indexing_status.update(
+            is_indexing=False,
+            status_message="No files to index"
+        )
+        return 0
+    
+    # Update status with file count
+    indexing_status.update(
+        total_files=len(text_files),
+        processed_files=0,
+        status_message=f"Found {len(text_files)} files to index"
+    )
+    
+    indexed_count = 0
+    
+    # Process files in parallel
+    with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        futures = []
+        
+        for file_name in text_files:
+            file_path = os.path.join(document_paths, file_name)
+            futures.append(executor.submit(self._process_file, file_path, file_name))
+        
+        # Collect results
+        documents_to_add = []
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                documents_to_add.append(result)
+                
+                # Update progress
+                processed = indexing_status.processed_files + 1
+                progress = int((processed / len(text_files)) * 100)
+                indexing_status.update(
+                    processed_files=processed,
+                    current_file=result["metadata"]["document_name"],
+                    progress=progress,
+                    status_message=f"Processing {result['metadata']['document_name']}"
+                )
+        
+        # Get embeddings for all documents in optimized batches
+        if documents_to_add:
+            # Create a new event loop for async operations in this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                # Extract texts for batch processing
+                texts = [doc["text"] for doc in documents_to_add]
+                
+                # Get embeddings in optimized batches
+                embeddings = loop.run_until_complete(self._get_embeddings_batch(texts))
+                
+                # Prepare data for insertion
+                ids = [doc["metadata"]["id"] for doc in documents_to_add]
+                vectors = embeddings
+                texts = [doc["text"] for doc in documents_to_add]
+                document_names = [doc["metadata"]["document_name"] for doc in documents_to_add]
+                file_paths = [doc["metadata"]["file_path"] for doc in documents_to_add]
+                file_hashes = [doc["metadata"]["file_hash"] for doc in documents_to_add]
+                timestamps = [doc["metadata"]["timestamp"] for doc in documents_to_add]
+                
+                # Insert data in larger batches for efficiency
+                batch_size = 500  # Increased batch size
+                for i in range(0, len(ids), batch_size):
+                    batch_end = min(i + batch_size, len(ids))
+                    
+                    try:
+                        # Prepare the list of data to insert
+                        data_to_insert = []
+                        for j in range(i, batch_end):
+                            data_to_insert.append({
+                                "id": ids[j],
+                                "vector": vectors[j],
+                                "text": texts[j],
+                                "document_name": document_names[j],
+                                "file_path": file_paths[j],
+                                "file_hash": file_hashes[j],
+                                "timestamp": timestamps[j]
+                            })
+                        
+                        # Execute batch insert with timeout
+                        self.milvus_client.insert(
+                            collection_name=self.collection_name,
+                            data=data_to_insert,
+                            timeout=30  # Add timeout to prevent hanging
+                        )
+                        
+                        # Update indexed files cache
+                        for j in range(i, batch_end):
+                            self.indexed_files[file_paths[j]] = file_hashes[j]
+                            self.document_metadata[ids[j]] = {
+                                "text": texts[j],
+                                "metadata": {
+                                    "document_name": document_names[j],
+                                    "file_path": file_paths[j],
+                                    "file_hash": file_hashes[j],
+                                    "timestamp": timestamps[j]
+                                }
+                            }
+                        
+                        indexed_count += (batch_end - i)
+                        logger.info(f"Indexed batch of {batch_end - i} documents")
+                    except Exception as e:
+                        logger.error(f"Error adding batch to collection: {e}")
+            finally:
+                loop.close()
+    
+    # Update final status
+    indexing_status.update(
+        is_indexing=False,
+        status_message=f"Indexing complete. {indexed_count} documents indexed.",
+        progress=100
+    )
+    
+    logger.info(f"Indexing complete. Total documents indexed: {indexed_count}")
+    return indexed_count
+```
+
+## 3. Caching Optimizations
+
+### 3.1 Implement Query Result Caching
+
+```python
+import time
+from functools import lru_cache
+
+class KnowledgeBaseIndexer:
+    def __init__(self, 
+                 collection_name="pdf_documents", 
+                 ollama_url="http://localhost:11434",
+                 indexed_directory=INDEXED_DIRECTORY,
+                 max_workers=4,
+                 cache_size=1000,  # Number of queries to cache
+                 cache_ttl=3600):   # Cache TTL in seconds (1 hour)
+        
+        # Store configuration
+        self.collection_name = collection_name
+        self.ollama_url = ollama_url
+        self.indexed_directory = indexed_directory
+        self.max_workers = max_workers
+        self.embedding_dim = 768
+        self.cache_size = cache_size
+        self.cache_ttl = cache_ttl
+        
+        # Initialize cache
+        self.query_cache = {}
+        self.cache_timestamps = {}
+        
+        # Rest of initialization...
+    
+    def _get_cache_key(self, query: str, n_results: int) -> str:
+        """Generate a cache key for a query"""
+        # Create a hash of the query and parameters
+        key_data = f"{query}:{n_results}".encode('utf-8')
+        return hashlib.md5(key_data).hexdigest()
+    
+    def _is_cache_valid(self, cache_key: str) -> bool:
+        """Check if cached result is still valid"""
+        if cache_key not in self.cache_timestamps:
+            return False
+        
+        # Check if cache has expired
+        timestamp = self.cache_timestamps[cache_key]
+        return (time.time() - timestamp) < self.cache_ttl
+    
+    def _update_cache(self, cache_key: str, results: List[Dict]):
+        """Update the cache with new results"""
+        # If cache is full, remove the oldest entry
+        if len(self.query_cache) >= self.cache_size:
+            oldest_key = min(self.cache_timestamps.keys(), key=lambda k: self.cache_timestamps[k])
+            del self.query_cache[oldest_key]
+            del self.cache_timestamps[oldest_key]
+        
+        # Add new entry
+        self.query_cache[cache_key] = results
+        self.cache_timestamps[cache_key] = time.time()
+    
+    async def search_documents(self, query: str, n_results: int = 3) -> List[Dict]:
+        """Search indexed documents with caching"""
+        # Validate query and results count
+        if not query or not isinstance(query, str):
+            logger.warning("Invalid query provided")
+            return []
+        
+        n_results = max(1, min(n_results, 10))  # Limit results between 1 and 10
+        
+        # Check cache first
+        cache_key = self._get_cache_key(query, n_results)
+        if self._is_cache_valid(cache_key):
+            logger.info(f"Returning cached results for query: {query[:50]}...")
+            return self.query_cache[cache_key]
+        
+        # Check if collection is empty
+        if self.milvus_client.get_collection_stats(collection_name=self.collection_name)["row_count"] == 0:
+            logger.warning("No documents have been indexed yet")
+            return []
+        
+        try:
+            # Get embedding for the query
+            query_embedding = await self._get_embedding(query)
+            
+            # Perform search with optimized parameters
+            results = self.milvus_client.search(
+                collection_name=self.collection_name,
+                data=[query_embedding],
+                limit=n_results,
+                output_fields=["text", "document_name", "file_path", "file_hash", "timestamp"],
+                search_params={
+                    "metric_type": "IP",
+                    "params": {"ef": 64}
+                },
+                anns_field="vector"
+            )
+            
+            # Prepare results with full context
+            context_results = []
+            
+            for hit in results[0]:
+                entity = hit["entity"]
+                context_results.append({
+                    "text": entity.get("text", ""),
+                    "metadata": {
+                        "document_name": entity.get("document_name", "Unknown Document"),
+                        "file_path": entity.get("file_path", ""),
+                        "file_hash": entity.get("file_hash", ""),
+                        "timestamp": entity.get("timestamp", "")
+                    },
+                    "relevance_score": hit["distance"]
+                })
+            
+            # Update cache
+            self._update_cache(cache_key, context_results)
+            
+            return context_results
+        
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
+            traceback.print_exc()
+            return []
+```
+
+### 3.2 Implement Embedding Caching
+
+```python
+class KnowledgeBaseIndexer:
+    # In __init__ method, add:
+    def __init__(self, ...):
+        # Existing code...
+        
+        # Initialize embedding cache
+        self.embedding_cache = {}
+        self.embedding_cache_size = 5000  # Number of text embeddings to cache
+    
+    async def _get_embedding(self, text):
+        """Get embedding for text using Ollama with caching"""
+        # Generate cache key for the text
+        cache_key = hashlib.md5(text.encode('utf-8')).hexdigest()
+        
+        # Check if embedding is already cached
+        if cache_key in self.embedding_cache:
+            return self.embedding_cache[cache_key]
+        
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Initialize client if needed
+                if self.ollama_client is None:
+                    self.ollama_client = AsyncClient(host=self.ollama_host)
+                    logger.info("Initialized new Ollama client")
+                
+                response = await self.ollama_client.embeddings(
+                    model="embeddinggemma:latest",
+                    prompt=text
+                )
+                embedding = response["embedding"]
+                
+                # Cache the embedding
+                if len(self.embedding_cache) >= self.embedding_cache_size:
+                    # Remove a random entry if cache is full
+                    # In a production system, you might want a more sophisticated eviction policy
+                    self.embedding_cache.pop(next(iter(self.embedding_cache)))
+                
+                self.embedding_cache[cache_key] = embedding
+                return embedding
+                
+            except Exception as e:
+                logger.error(f"Error generating embedding (attempt {attempt+1}/{max_retries}): {e}")
+                
+                # Close the existing client if it exists
+                if self.ollama_client:
+                    try:
+                        await self.ollama_client.close()
+                    except:
+                        pass
+                    self.ollama_client = None
+                
+                # Wait before retrying
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+        
+        # If all retries failed, raise the last exception
+        raise Exception(f"Failed to generate embedding after {max_retries} attempts")
+```
+
+## 4. API Endpoint Optimizations
+
+### 4.1 Implement Response Compression
+
+```python
+from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
+
+app = FastAPI(lifespan=lifespan, title="RAG Chatbot API", version="1.0.0")
+
+# Add GZip compression for responses > 1KB
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+```
+
+### 4.2 Optimize WebSocket Handling
+
+```python
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint with optimized handling"""
+    await manager.connect(websocket)
+    conversation = []
+    
+    # Initialize chatbot with knowledge base
+    try:
+        knowledge_base = app_state.get_knowledge_base()
+        chatbot = ChatbotService(knowledge_base)
+    except Exception as init_error:
+        logger.error(f"Error initializing ChatbotService: {init_error}")
+        chatbot = ChatbotService()
+    
+    try:
+        # Send initial status
+        await websocket.send_text(json.dumps({
+            "type": "status",
+            "data": {
+                "is_indexing": indexing_status.is_indexing,
+                "progress": indexing_status.progress,
+                "total_files": indexing_status.total_files,
+                "processed_files": indexing_status.processed_files,
+                "current_file": indexing_status.current_file,
+                "status_message": indexing_status.status_message,
+                "error": indexing_status.error
+            }
+        }))
+        
+        # Set a timeout for WebSocket operations
+        while True:
+            try:
+                # Use asyncio.wait_for to set a timeout
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                
+                try:
+                    # Try to parse as JSON for structured commands
+                    message = json.loads(data)
+                    
+                    if message.get("type") == "query":
+                        # Process as a query with timeout
+                        chat_time = datetime.now()
+                        response = await asyncio.wait_for(
+                            chatbot.generate_response(message.get("content", "")),
+                            timeout=30.0
+                        )
+                        
+                        # Store conversation
+                        conversation.append({
+                            "timestamp": chat_time.strftime('%B %d, %Y %I:%M %p'),
+                            "user_message": message.get("content", ""),
+                            "bot_response": response
+                        })
+                        
+                        # Send response back
+                        await websocket.send_text(json.dumps({
+                            "type": "response",
+                            "content": response
+                        }))
+                    
+                    elif message.get("type") == "status_request":
+                        # Send current status
+                        await websocket.send_text(json.dumps({
+                            "type": "status",
+                            "data": {
+                                "is_indexing": indexing_status.is_indexing,
+                                "progress": indexing_status.progress,
+                                "total_files": indexing_status.total_files,
+                                "processed_files": indexing_status.processed_files,
+                                "current_file": indexing_status.current_file,
+                                "status_message": indexing_status.status_message,
+                                "error": indexing_status.error
+                            }
+                        }))
+                    
+                    else:
+                        # Unknown message type
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": "Unknown message type"
+                        }))
+                
+                except json.JSONDecodeError:
+                    # Not JSON, treat as plain text query
+                    chat_time = datetime.now()
+                    response = await asyncio.wait_for(
+                        chatbot.generate_response(data),
+                        timeout=30.0
+                    )
+                    
+                    # Store conversation
+                    conversation.append({
+                        "timestamp": chat_time.strftime('%B %d, %Y %I:%M %p'),
+                        "user_message": data,
+                        "bot_response": response
+                    })
+                    
+                    # Send response back
+                    await websocket.send_text(json.dumps({
+                        "type": "response",
+                        "content": response
+                    }))
+            
+            except asyncio.TimeoutError:
+                # Send a ping to keep the connection alive
+                try:
+                    await websocket.send_text(json.dumps({
+                        "type": "ping",
+                        "message": "Connection alive"
+                    }))
+                except:
+                    # If sending fails, the connection is probably closed
+                    break
+    
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected")
+    except Exception as e:
+        error_message = f"Error processing your request: {str(e)}"
+        logger.error(error_message)
+        try:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": error_message
+            }))
+        except:
+            pass  # Connection might be closed
+    
+    finally:
+        manager.disconnect(websocket)
+        
+        # Log conversation (with error handling)
+        try:
+            with open("history.txt", 'a', encoding='utf-8') as f:
+                json.dump(conversation, f, indent=2)
+                f.write('\n')
+        except Exception as log_error:
+            logger.error(f"Error logging conversation: {log_error}")
+```
+
+### 4.3 Add Async Background Tasks for Indexing
+
+```python
+@app.post("/upload/")
+async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """Upload and process PDF file with optimized handling"""
+    try:
+        # Validate file type
+        if not file.filename.lower().endswith('.pdf'):
+            return JSONResponse(
+                content={"status": "error", "message": "Only PDF files are supported"},
+                status_code=400
+            )
+        
+        # Save uploaded file
+        file_location = UPLOAD_DIRECTORY / file.filename
+        with open(file_location, "wb") as file_object:
+            content = await file.read()
+            file_object.write(content)
+        
+        # Extract text from PDF in a background task
+        async def extract_and_index():
+            try:
+                # Extract text from PDF
+                extracted_pages = PDFTextExtractor.extract_text_from_pdf(
+                    str(file_location), 
+                    str(INDEXED_DIRECTORY)
+                )
+                
+                # Index the extracted documents
+                knowledge_base = app_state.get_knowledge_base()
+                indexed_count = await knowledge_base.index_documents_async(
+                    document_paths=str(INDEXED_DIRECTORY), 
+                    document_name=file.filename
+                )
+                
+                # Broadcast completion message
+                await manager.broadcast(json.dumps({
+                    "type": "indexing_complete",
+                    "filename": file.filename,
+                    "pages_extracted": len(extracted_pages),
+                    "documents_indexed": indexed_count
+                }))
+                
+                return {
+                    "status": "success",
+                    "pages_extracted": len(extracted_pages),
+                    "documents_indexed": indexed_count
+                }
+            except Exception as e:
+                logger.error(f"Error in extract_and_index: {e}")
+                await manager.broadcast(json.dumps({
+                    "type": "error",
+                    "message": f"Processing failed: {str(e)}"
+                }))
+                return {
+                    "status": "error",
+                    "message": str(e)
+                }
+        
+        # Add the background task
+        background_tasks.add_task(extract_and_index)
+        
+        return JSONResponse({
+            "status": "processing", 
+            "message": f"PDF uploaded. Text extraction and indexing will be processed in the background: {file.filename}",
+        })
+        
+    except Exception as e:
+        logger.error(f"Unexpected error processing upload: {e}")
+        return JSONResponse(
+            content={
+                "status": "error", 
+                "message": f"Unexpected error processing upload: {str(e)}"
+            },
+            status_code=500
+        )
+```
+
+## 5. PDF Processing Optimizations
+
+### 5.1 Optimize PDF Text Extraction
+
+```python
+class PDFTextExtractor:
+    @staticmethod
+    def extract_text_from_pdf(pdf_path, output_dir):
+        """
+        Extract text from PDF with optimized processing
+        
+        Args:
+            pdf_path (str): Path to the input PDF file
+            output_dir (str): Directory to save extracted text files
+        
+        Returns:
+            Dict[str, str]: Dictionary of page numbers to file paths
+        """
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Open the PDF file with optimized settings
+        pdf_document = fitz.open(pdf_path)
+        
+        # Extract text from each page
+        extracted_pages = {}
+        
+        # Process pages in batches for better performance
+        batch_size = 10  # Adjust based on your system's capabilities
+        
+        for batch_start in range(0, len(pdf_document), batch_size):
+            batch_end = min(batch_start + batch_size, len(pdf_document))
+            
+            # Process batch of pages
+            for page_num in range(batch_start, batch_end):
+                page = pdf_document.load_page(page_num)
+                
+                # Use optimized text extraction
+                text = page.get_text("text")  # "text" is faster than default
+                
+                # Skip empty pages
+                if not text.strip():
+                    continue
+                
+                # Define the filename for each page
+                txt_file_path = os.path.join(output_dir, f"page_{page_num + 1}.txt")
+                
+                # Save the extracted text to a file
+                with open(txt_file_path, 'w', encoding='utf-8') as file:
+                    file.write(text)
+                
+                extracted_pages[f"page_{page_num + 1}"] = txt_file_path
+        
+        # Close the PDF file
+        pdf_document.close()
+        
+        return extracted_pages
+```
+
+### 5.2 Implement Parallel PDF Processing
+
+```python
+class PDFTextExtractor:
+    @staticmethod
+    def extract_text_from_pdf_parallel(pdf_path, output_dir, max_workers=4):
+        """
+        Extract text from PDF using parallel processing
+        
+        Args:
+            pdf_path (str): Path to the input PDF file
+            output_dir (str): Directory to save extracted text files
+            max_workers (int): Maximum number of parallel workers
+        
+        Returns:
+            Dict[str, str]: Dictionary of page numbers to file paths
+        """
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Open the PDF file
+        pdf_document = fitz.open(pdf_path)
+        total_pages = len(pdf_document)
+        
+        # Function to process a single page
+        def process_page(page_num):
+            page = pdf_document.load_page(page_num)
+            text = page.get_text("text")
+            
+            # Skip empty pages
+            if not text.strip():
+                return None
+            
+            # Define the filename for each page
+            txt_file_path = os.path.join(output_dir, f"page_{page_num + 1}.txt")
+            
+            # Save the extracted text to a file
+            with open(txt_file_path, 'w', encoding='utf-8') as file:
+                file.write(text)
+            
+            return f"page_{page_num + 1}", txt_file_path
+        
+        # Process pages in parallel
+        extracted_pages = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            futures = [executor.submit(process_page, page_num) for page_num in range(total_pages)]
+            
+            # Collect results
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    page_name, file_path = result
+                    extracted_pages[page_name] = file_path
+        
+        # Close the PDF file
+        pdf_document.close()
+        
+        return extracted_pages
+```
+
+## 6. Additional Performance Optimizations
+
+### 6.1 Implement Connection Pooling
+
+```python
+from contextlib import asynccontextmanager
+
+class OllamaConnectionPool:
+    def __init__(self, host, max_connections=10):
+        self.host = host
+        self.max_connections = max_connections
+        self.connections = asyncio.Queue(maxsize=max_connections)
+        self.current_connections = 0
+        
+    async def get_connection(self):
+        """Get a connection from the pool or create a new one"""
+        try:
+            # Try to get a connection from the pool
+            connection = await asyncio.wait_for(self.connections.get(), timeout=1.0)
+            return connection
+        except asyncio.TimeoutError:
+            # If no connection available and we can create more
+            if self.current_connections < self.max_connections:
+                self.current_connections += 1
+                return AsyncClient(host=self.host)
+            else:
+                # If we can't create more, wait for a connection to be returned
+                return await self.connections.get()
+    
+    async def return_connection(self, connection):
+        """Return a connection to the pool"""
+        await self.connections.put(connection)
+    
+    @asynccontextmanager
+    async def get_client(self):
+        """Context manager for getting and returning a connection"""
+        client = await self.get_connection()
+        try:
+            yield client
+        finally:
+            await self.return_connection(client)
+    
+    async def close_all(self):
+        """Close all connections in the pool"""
+        while not self.connections.empty():
+            connection = await self.connections.get()
+            await connection.close()
+        self.current_connections = 0
+
+# Update KnowledgeBaseIndexer to use the connection pool
+class KnowledgeBaseIndexer:
+    def __init__(self, 
+                 collection_name="pdf_documents", 
+                 ollama_url="http://localhost:11434",
+                 indexed_directory=INDEXED_DIRECTORY,
+                 max_workers=4):
+        
+        # Store configuration
+        self.collection_name = collection_name
+        self.ollama_url = ollama_url
+        self.indexed_directory = indexed_directory
+        self.max_workers = max_workers
+        self.embedding_dim = 768
+        
+        # Initialize Milvus client
+        try:
+            self.milvus_client = MilvusClient(uri=str(MILVUS_DB_PATH))
+            logger.info("Successfully initialized Milvus client")
+        except Exception as e:
+            logger.error(f"Failed to initialize Milvus client: {e}")
+            raise
+        
+        # Initialize Ollama connection pool
+        self.ollama_pool = OllamaConnectionPool(
+            host=ollama_url.replace("/api/embeddings", ""),
+            max_connections=10
+        )
+        logger.info("Successfully initialized Ollama connection pool")
+        
+        # Rest of initialization...
+    
+    async def _get_embedding(self, text):
+        """Get embedding for text using Ollama connection pool"""
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                async with self.ollama_pool.get_client() as client:
+                    response = await client.embeddings(
+                        model="embeddinggemma:latest",
+                        prompt=text
+                    )
+                    return response["embedding"]
+                    
+            except Exception as e:
+                logger.error(f"Error generating embedding (attempt {attempt+1}/{max_retries}): {e}")
+                
+                # Wait before retrying
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+        
+        # If all retries failed, raise an exception
+        raise Exception(f"Failed to generate embedding after {max_retries} attempts")
+    
+    async def close(self):
+        """Close all connections"""
+        await self.ollama_pool.close_all()
+```
+
+### 6.2 Add API Rate Limiting
+
+```python
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware import Middleware
+from fastapi.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+# Custom middleware for rate limiting
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, limiter):
+        super().__init__(app)
+        self.limiter = limiter
+    
+    async def dispatch(self, request: Request, call_next):
+        # Apply rate limiting to specific endpoints
+        if request.url.path in ["/query/", "/upload/", "/reindex/"]:
+            try:
+                # Check if the request is rate limited
+                self.limiter._check_request_limit(request)
+            except RateLimitExceeded as e:
+                raise HTTPException(status_code=429, detail=str(e))
+        
+        response = await call_next(request)
+        return response
+
+# Add middleware to the app
+app = FastAPI(lifespan=lifespan, title="RAG Chatbot API", version="1.0.0")
+app.add_middleware(RateLimitMiddleware, limiter=limiter)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Add rate limiting to specific endpoints
+@app.post("/query/")
+@limiter.limit("10/minute")  # Limit to 10 requests per minute
+async def query_endpoint(request: Request, query: str):
+    # Add input validation
+    if not query or len(query.strip()) == 0:
+        return JSONResponse(
+            content={"error": "Query cannot be empty"},
+            status_code=400
+        )
+    
+    try:
+        knowledge_base = app_state.get_knowledge_base()
+        result = await knowledge_base.search_documents(query)
+        
+        # Ensure result is serializable
+        if result is None:
+            return JSONResponse(content={"result": []})
+        
+        return JSONResponse(content={"result": result})
+    
+    except Exception as e:
+        # Log the full error for debugging
+        logging.error(f"Query error: {str(e)}", exc_info=True)
+        
+        return JSONResponse(
+            content={
+                "error": "An error occurred during document search",
+                "details": str(e)
+            },
+            status_code=500
+        )
+```
+
+## 7. Monitoring and Performance Metrics
+
+### 7.1 Add Performance Monitoring
+
+```python
+import time
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+# Add performance monitoring middleware
+class PerformanceMonitorMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app):
+        super().__init__(app)
+        self.request_times = {}
+    
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        # Log the request processing time
+        logger.info(f"Request to {request.url.path} processed in {process_time:.4f} seconds")
+        
+        # Add performance header
+        response.headers["X-Process-Time"] = str(process_time)
+        
+        return response
+
+# Add middleware to the app
+app.add_middleware(PerformanceMonitorMiddleware)
+
+# Add endpoint to get performance metrics
+@app.get("/metrics")
+async def get_metrics():
+    """Get application performance metrics"""
+    try:
+        # Get collection stats
+        knowledge_base = app_state.get_knowledge_base()
+        stats = knowledge_base.milvus_client.get_collection_stats(
+            collection_name=knowledge_base.collection_name
+        )
+        
+        # Get cache stats
+        cache_stats = {
+            "query_cache_size": len(knowledge_base.query_cache),
+            "embedding_cache_size": len(knowledge_base.embedding_cache),
+            "cache_hit_rate": "N/A"  # Would need to track hits and misses
+        }
+        
+        # Get system info
+        import psutil
+        system_stats = {
+            "cpu_percent": psutil.cpu_percent(),
+            "memory_percent": psutil.virtual_memory().percent,
+            "disk_usage": psutil.disk_usage('/').percent
+        }
+        
+        return {
+            "collection_stats": {
+                "total_documents": stats["row_count"]
+            },
+            "cache_stats": cache_stats,
+            "system_stats": system_stats,
+            "indexing_status": {
+                "is_indexing": indexing_status.is_indexing,
+                "progress": indexing_status.progress,
+                "total_files": indexing_status.total_files,
+                "processed_files": indexing_status.processed_files,
+                "current_file": indexing_status.current_file,
+                "status_message": indexing_status.status_message,
+                "error": indexing_status.error
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting metrics: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+```
+
+These optimizations should significantly improve the performance of your RAG application by:
+
+1. Optimizing database operations with better indexing and search parameters
+2. Implementing efficient batch processing for embeddings
+3. Adding caching for both query results and embeddings
+4. Improving API endpoint performance with compression and connection pooling
+5. Optimizing PDF text extraction with parallel processing
+6. Adding rate limiting to prevent abuse
+7. Implementing performance monitoring to identify bottlenecks
+
