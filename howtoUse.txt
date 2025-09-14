@@ -1,6 +1,11 @@
+RE-USE This in any case.
+https://github.com/AbdArdati/PDFQueryAI -> there's project, neat one for duplication;
+https://www.linkedin.com/pulse/askitright-my-journey-building-ai-powered-pdf-query-app-ardati-liuce/
+
+
 $uvicorn lama:app --reload --port 8000
-ANALYSIS OF VERSION2 OF MILVUS :
------------------------v2 of milvus -------------------------------
+ANALYSIS OF VERSION2 OF MILVUS:
+-----------------------V2 of milvus------------------------------
 
 
 INFO:     127.0.0.1:42196 - "POST /upload/ HTTP/1.1" 200 OK
@@ -27,18 +32,14 @@ indexing time is 46 seconds: for the attention is not all you need: also 11 page
 
 retrieval TIME : 48 SECONDS.
 
-
-
-
-
---------------------------------------------------------------------------------------
-
+-----------------------------------version 1 of milvus---------------------------------------------------
 ANALYSIS OF the ORIGINAL VERSION OF MILVUS : MilvusVersion
 
 INDEXING TIME WAS NOT ** RECORDED CLEARLY FOR ATTENTION IS ALL YOU NEED GOOGLE FILE_:4
-------------------------version 1 of milvus_---------------------------
-for version 1
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------version 1 of milvus-----------------------------------
+
+For version 1:
+-------------------------------------------------------------------------------------------------------------------------
 2025-09-12 17:30:55,169 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
 2025-09-12 17:30:57,062 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
 2025-09-12 17:30:57,722 - INFO - HTTP Request: POST http://localhost:11434/api/embeddings "HTTP/1.1 200 OK"
