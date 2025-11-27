@@ -1,9 +1,13 @@
-NB:
-
+NB: DATE: 11-27-2025 : READ THE REQUIREMENTS.MD file
+as of 11-27-2025 I have improved the interface (UI), and working on other improvements: 
+frontend :
+-> preview to preserve the document either as pdf or markdown? 
+->  search types (provide the search results on the advanced search ui, such that they are clickable)
+->
 
 please look into the analysis of the two versions:
 
-in the 
+I have not done a lot based on the below: as of 11-27-2025 (infact nothing has been done since the milvus experiment)
 
 howtoUse.txt:
 

@@ -1,5 +1,10 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+pdf_hashes.json
 uploads/
+status.json
 *.pyc
 *.pyo
 *~
