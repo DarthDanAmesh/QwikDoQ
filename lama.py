@@ -8,12 +8,12 @@ import re
 import traceback
 from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Set
+from typing import List, Dict, Any, Optional, Tuple
 import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
-
+from functools import lru_cache
 import chromadb
 from chromadb import HttpClient
 from chromadb.config import Settings
@@ -98,6 +98,467 @@ class IndexingStatus:
             logger.error(f"Failed to persist status: {e}")
 
 indexing_status = IndexingStatus()
+
+
+
+
+class DocumentStructureExtractor:
+    """
+    Advanced document structure extraction without external dependencies.
+    Handles gazettes, legal documents, reports, and general documents.
+    """
+    
+    def __init__(self):
+        # Pattern definitions for different heading types
+        self.heading_patterns = {
+            'markdown': re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE),
+            'uppercase': re.compile(r'^([A-Z][A-Z\s]{10,80})$', re.MULTILINE),
+            'numbered': re.compile(r'^(\d+(?:\.\d+)*)\.\s+(.+)$', re.MULTILINE),
+            'bold': re.compile(r'\*\*(.+?)\*\*', re.MULTILINE),
+        }
+        
+        # Gazette-specific patterns
+        self.gazette_patterns = {
+            'notice_number': re.compile(r'GAZETTE\s+NOTICE\s+NO\.\s*(\d+)', re.IGNORECASE),
+            'appointment': re.compile(r'APPOINTMENT', re.IGNORECASE),
+            'legal_notice': re.compile(r'LEGAL\s+NOTICE', re.IGNORECASE),
+        }
+        
+        # Entity extraction patterns
+        self.entity_patterns = {
+            'organization': re.compile(
+                r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Company|Corporation|Inc|Ltd|Limited|'
+                r'Organization|Department|Ministry|Board|Commission|Authority|Agency))\b'
+            ),
+            'date': re.compile(
+                r'\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|'
+                r'(?:January|February|March|April|May|June|July|August|September|October|'
+                r'November|December)\s+\d{1,2},?\s+\d{4})\b'
+            ),
+            'person': re.compile(r'\b([A-Z][a-z]+\s+[A-Z]\.\s+[A-Z][a-z]+|[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b'),
+            'email': re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),
+            'phone': re.compile(r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'),
+            'reference': re.compile(r'\b(?:Ref|Reference|File)\.?\s*(?:No\.?|Number)?\s*[:\s]*([A-Z0-9/-]+)\b', re.IGNORECASE),
+        }
+    
+    def extract_structure(self, content: str, filename: str) -> Dict[str, Any]:
+        """
+        Main extraction method - returns complete document structure.
+        
+        Args:
+            content: Full document text
+            filename: Name of the document
+            
+        Returns:
+            Dictionary with summary, hierarchy, tables, sections, entities
+        """
+        lines = content.split('\n')
+        
+        # Cache content hash for efficient re-processing
+        content_hash = hashlib.md5(content.encode()).hexdigest()
+        
+        structure = {
+            "filename": filename,
+            "content_hash": content_hash,
+            "timestamp": datetime.now().isoformat(),
+            "summary": self._extract_summary(content, filename, lines),
+            "hierarchy": self._extract_hierarchy(lines),
+            "tables": self._extract_tables(content, lines),
+            "sections": self._extract_sections(lines),
+            "entities": self._extract_entities(content),
+            "metadata": self._extract_metadata(content)
+        }
+        
+        return structure
+    def _extract_summary(self, content: str, filename: str, lines: List[str]) -> Dict[str, Any]:
+        """Generate comprehensive document summary statistics."""
+        words = content.split()
+        sentences = re.split(r'[.!?]+', content)
+        paragraphs = [p for p in content.split('\n\n') if p.strip()]
+        
+        # Document type detection
+        doc_type = self._detect_document_type(content)
+        
+        # Complexity metrics
+        avg_sentence_length = len(words) / max(len(sentences), 1)
+        avg_word_length = sum(len(w) for w in words) / max(len(words), 1)
+        
+        return {
+            "document_type": doc_type,
+            "total_pages": self._estimate_pages(content),
+            "total_words": len(words),
+            "total_lines": len(lines),
+            "total_paragraphs": len(paragraphs),
+            "total_sentences": len([s for s in sentences if s.strip()]),
+            "headings_count": len(self._find_all_headings(lines)),
+            "tables_count": len(self._extract_tables(content, lines)),
+            "estimated_reading_time": f"{max(1, len(words) // 200)} min",
+            "avg_sentence_length": round(avg_sentence_length, 1),
+            "avg_word_length": round(avg_word_length, 1),
+            "complexity_score": self._calculate_complexity(content)
+        }
+    
+    def _detect_document_type(self, content: str) -> str:
+        """Detect document type based on content patterns."""
+        content_lower = content.lower()
+        
+        type_indicators = {
+            "gazette": ['gazette', 'notice no', 'legal notice', 'appointment'],
+            "contract": ['contract', 'agreement', 'party a', 'party b', 'whereas'],
+            "report": ['executive summary', 'findings', 'recommendations', 'conclusion'],
+            "minutes": ['minutes', 'meeting', 'attendees', 'agenda', 'motion'],
+            "invoice": ['invoice', 'bill to', 'subtotal', 'total due'],
+            "letter": ['dear', 'sincerely', 'yours faithfully', 'regards'],
+        }
+        
+        for doc_type, indicators in type_indicators.items():
+            if sum(indicator in content_lower for indicator in indicators) >= 2:
+                return doc_type
+        
+        return "general"
+    
+    def _estimate_pages(self, content: str) -> int:
+        """Estimate page count (250 words/page)."""
+        words = len(content.split())
+        return max(1, round(words / 250))
+    
+    def _calculate_complexity(self, content: str) -> str:
+        """Calculate document complexity based on various metrics."""
+        words = content.split()
+        avg_word_len = sum(len(w) for w in words) / max(len(words), 1)
+        
+        if avg_word_len < 5:
+            return "Simple"
+        elif avg_word_len < 7:
+            return "Moderate"
+        else:
+            return "Complex"
+    
+    # ------------------------------------------------------------------------
+    # Hierarchy Extraction
+    # ------------------------------------------------------------------------
+    
+    def _extract_hierarchy(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Extract document hierarchy with heading levels."""
+        hierarchy = []
+        
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if not line or len(line) < 3:
+                continue
+            
+            heading_info = self._classify_heading(line)
+            if heading_info:
+                level, heading_type, clean_text = heading_info
+                hierarchy.append({
+                    "level": level,
+                    "text": clean_text,
+                    "type": heading_type,
+                    "line_number": i + 1,
+                    "page": self._estimate_page_from_line(i, len(lines))
+                })
+        
+        return hierarchy
+    
+    def _classify_heading(self, text: str) -> Optional[Tuple[int, str, str]]:
+        """
+        Classify text as heading and determine level.
+        Returns: (level, type, cleaned_text) or None
+        """
+        # Markdown headers (# to ######)
+        md_match = self.heading_patterns['markdown'].match(text)
+        if md_match:
+            level = len(md_match.group(1))
+            return (level, "markdown", md_match.group(2))
+        
+        # Uppercase headings (likely level 1-2)
+        if text.isupper() and 10 <= len(text) <= 80:
+            level = 1 if len(text) < 30 else 2
+            return (level, "uppercase", text)
+        
+        # Numbered sections (1.1, 2.3.1, etc.)
+        num_match = self.heading_patterns['numbered'].match(text)
+        if num_match:
+            level = num_match.group(1).count('.') + 1
+            return (level, "numbered", text)
+        
+        # Bold patterns (**text**)
+        if text.startswith('**') and text.endswith('**'):
+            return (2, "bold", text.strip('*'))
+        
+        return None
+    
+    def _find_all_headings(self, lines: List[str]) -> List[str]:
+        """Find all headings in document."""
+        headings = []
+        for line in lines:
+            if self._classify_heading(line.strip()):
+                headings.append(line.strip())
+        return headings
+    
+    def _estimate_page_from_line(self, line_num: int, total_lines: int) -> int:
+        """Estimate page number from line number (50 lines/page)."""
+        return (line_num // 50) + 1
+    
+    
+    def _extract_tables(self, content: str, lines: List[str]) -> List[Dict[str, Any]]:
+        """Extract tables with improved detection."""
+        tables = []
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            if self._is_table_row(line):
+                table_data = self._extract_table_from_position(lines, i)
+                if table_data and len(table_data['rows']) >= 2:
+                    tables.append(table_data)
+                    i += len(table_data['rows'])
+                    continue
+            i += 1
+        
+        return tables
+    
+    def _is_table_row(self, line: str) -> bool:
+        """Check if line is part of a table."""
+        if not line:
+            return False
+        
+        # Check for common table separators
+        separators = ['|', '\t', '  ']
+        for sep in separators:
+            if line.count(sep) >= 2:
+                return True
+        
+        # Check for markdown table separator
+        if re.match(r'^\s*[|:]?[\s\-:|]+[|:]?\s*$', line):
+            return True
+        
+        return False
+    
+    def _extract_table_from_position(self, lines: List[str], start_idx: int) -> Optional[Dict[str, Any]]:
+        """Extract complete table starting from position."""
+        rows = []
+        i = start_idx
+        separator_detected = False
+        
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # Check for markdown separator
+            if re.match(r'^\s*[|:]?[\s\-:|]+[|:]?\s*$', line):
+                separator_detected = True
+                i += 1
+                continue
+            
+            if not line or not self._is_table_row(line):
+                break
+            
+            cells = self._parse_table_cells(line)
+            if cells:
+                rows.append(cells)
+            i += 1
+        
+        if len(rows) < 2:
+            return None
+        
+        # Detect if first row is header
+        has_header = separator_detected or self._looks_like_header(rows[0])
+        
+        return {
+            "table_id": f"table_{start_idx}",
+            "has_header": has_header,
+            "columns": rows[0] if has_header else [f"Col_{j+1}" for j in range(len(rows[0]))],
+            "rows": rows[1:] if has_header else rows,
+            "row_count": len(rows) - (1 if has_header else 0),
+            "column_count": len(rows[0]),
+            "start_line": start_idx + 1,
+            "end_line": i
+        }
+    
+    def _parse_table_cells(self, line: str) -> List[str]:
+        """Parse individual cells from table row."""
+        # Pipe-separated
+        if '|' in line:
+            cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+            return cells
+        
+        # Tab-separated
+        if '\t' in line:
+            return [cell.strip() for cell in line.split('\t') if cell.strip()]
+        
+        # Multiple spaces (at least 2)
+        return [cell.strip() for cell in re.split(r'\s{2,}', line) if cell.strip()]
+    
+    def _looks_like_header(self, row: List[str]) -> bool:
+        """Check if row looks like a header."""
+        if not row:
+            return False
+        
+        # Headers often have title case or all caps
+        header_indicators = sum([
+            cell.istitle() or cell.isupper() or 
+            any(word in cell.lower() for word in ['name', 'date', 'id', 'number', 'total'])
+            for cell in row
+        ])
+        
+        return header_indicators >= len(row) / 2
+    
+    def _extract_sections(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Extract document sections with content."""
+        sections = []
+        current_section = None
+        current_content = []
+        
+        for i, line in enumerate(lines):
+            heading_info = self._classify_heading(line.strip())
+            
+            if heading_info:
+                # Save previous section
+                if current_section:
+                    content_text = "\n".join(current_content)
+                    current_section.update({
+                        "content": content_text,
+                        "content_preview": content_text[:200] + "..." if len(content_text) > 200 else content_text,
+                        "word_count": len(content_text.split()),
+                        "line_count": len(current_content)
+                    })
+                    sections.append(current_section)
+                
+                # Start new section
+                level, heading_type, clean_text = heading_info
+                current_section = {
+                    "section_id": f"section_{len(sections)}",
+                    "title": clean_text,
+                    "level": level,
+                    "type": heading_type,
+                    "start_line": i + 1
+                }
+                current_content = []
+            elif current_section and line.strip():
+                current_content.append(line)
+        
+        # Add final section
+        if current_section and current_content:
+            content_text = "\n".join(current_content)
+            current_section.update({
+                "content": content_text,
+                "content_preview": content_text[:200] + "..." if len(content_text) > 200 else content_text,
+                "word_count": len(content_text.split()),
+                "line_count": len(current_content)
+            })
+            sections.append(current_section)
+        
+        return sections
+    
+    def _extract_entities(self, content: str) -> Dict[str, List[str]]:
+        """Extract named entities from content."""
+        entities = {
+            "organizations": set(),
+            "people": set(),
+            "dates": set(),
+            "emails": set(),
+            "phones": set(),
+            "references": set()
+        }
+        
+        # Extract using regex patterns
+        for entity_type, pattern in self.entity_patterns.items():
+            matches = pattern.findall(content)
+            
+            # Map entity types to storage keys
+            if entity_type == 'organization':
+                entities['organizations'].update(matches)
+            elif entity_type == 'person':
+                # Filter out likely false positives
+                entities['people'].update([m for m in matches if self._is_likely_person_name(m)])
+            elif entity_type == 'date':
+                entities['dates'].update(matches)
+            elif entity_type == 'email':
+                entities['emails'].update(matches)
+            elif entity_type == 'phone':
+                entities['phones'].update(matches)
+            elif entity_type == 'reference':
+                entities['references'].update(matches)
+        
+        # Convert sets to lists and limit results
+        return {
+            key: sorted(list(value))[:20]  # Limit to top 20 per category
+            for key, value in entities.items()
+        }
+    
+    def _is_likely_person_name(self, name: str) -> bool:
+        """Filter out false positive person names."""
+        # Exclude common false positives
+        excludes = ['New York', 'United States', 'North America', 'South Africa']
+        if name in excludes:
+            return False
+        
+        # Must have at least 2 words
+        words = name.split()
+        if len(words) < 2:
+            return False
+        
+        # Each word should be capitalized
+        return all(w[0].isupper() for w in words)
+    
+    def _extract_metadata(self, content: str) -> Dict[str, Any]:
+        """Extract document metadata (dates, references, etc.)."""
+        metadata = {}
+        
+        # Extract gazette-specific metadata
+        if 'gazette' in content.lower():
+            notice_match = self.gazette_patterns['notice_number'].search(content)
+            if notice_match:
+                metadata['gazette_notice_number'] = notice_match.group(1)
+        
+        # Extract dates
+        dates = self.entity_patterns['date'].findall(content)
+        if dates:
+            metadata['document_dates'] = list(set(dates))[:5]
+        
+        # Extract references
+        refs = self.entity_patterns['reference'].findall(content)
+        if refs:
+            metadata['references'] = list(set(refs))[:5]
+        
+        return metadata
+
+
+class StructureCache:
+    """Cache for document structure to avoid reprocessing."""
+    
+    def __init__(self, cache_dir: Path = Path("cache/structures")):
+        self.cache_dir = cache_dir
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    def get(self, filename: str, content_hash: str) -> Optional[Dict[str, Any]]:
+        """Retrieve cached structure if it exists and is valid."""
+        cache_file = self.cache_dir / f"{self._sanitize_filename(filename)}_{content_hash}.json"
+        
+        if cache_file.exists():
+            try:
+                with open(cache_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error reading cache: {e}")
+        
+        return None
+    
+    def set(self, filename: str, content_hash: str, structure: Dict[str, Any]):
+        """Cache structure data."""
+        cache_file = self.cache_dir / f"{self._sanitize_filename(filename)}_{content_hash}.json"
+        
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(structure, f, indent=2)
+        except Exception as e:
+            logger.error(f"Error writing cache: {e}")
+    
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename for safe caching."""
+        return re.sub(r'[^\w\-_.]', '_', filename)
+
 
 class PDFTextExtractor:
     @staticmethod
@@ -1035,6 +1496,9 @@ class AppState:
 # Global application state
 app_state = AppState()
 
+structure_extractor = DocumentStructureExtractor()
+structure_cache = StructureCache()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start background indexing on application startup"""
@@ -1681,7 +2145,140 @@ async def get_conversation_history():
             content={"error": f"Failed to retrieve conversation history: {str(e)}"},
             status_code=500
         )
-    
+
+
+@app.get("/document-structure/{filename}")
+async def get_document_structure(filename: str):
+    """
+    Get comprehensive document structure analysis.
+    Returns cached result if available.
+    """
+    try:
+        # Get document content
+        safe_filename = os.path.basename(filename)
+        base_name = safe_filename.replace('.pdf', '').replace('.txt', '')
+        
+        # Find text files
+        page_files = []
+        for f in os.listdir(INDEXED_DIRECTORY):
+            match = re.match(rf"^{re.escape(base_name)}_page_(\d+)\.txt$", f)
+            if match:
+                page_num = int(match.group(1))
+                page_files.append((page_num, f))
+        
+        if not page_files:
+            return JSONResponse(
+                content={"error": f"No content found for {safe_filename}"},
+                status_code=404
+            )
+        
+        # Combine content
+        page_files.sort(key=lambda x: x[0])
+        combined_content = ""
+        for _, page_file in page_files:
+            page_path = INDEXED_DIRECTORY / page_file
+            with open(page_path, 'r', encoding='utf-8', errors='replace') as f:
+                combined_content += f.read() + "\n\n"
+        
+        # Check cache
+        content_hash = hashlib.md5(combined_content.encode()).hexdigest()
+        cached_structure = structure_cache.get(safe_filename, content_hash)
+        
+        if cached_structure:
+            logger.info(f"Using cached structure for {safe_filename}")
+            return JSONResponse(content=cached_structure)
+        
+        # Extract structure
+        structure = structure_extractor.extract_structure(combined_content, safe_filename)
+        
+        # Cache result
+        structure_cache.set(safe_filename, content_hash, structure)
+        
+        return JSONResponse(content=structure)
+        
+    except Exception as e:
+        logger.error(f"Error extracting structure: {e}")
+        return JSONResponse(
+            content={"error": f"Failed to extract structure: {str(e)}"},
+            status_code=500
+        )
+
+
+@app.get("/document-tables/{filename}")
+async def get_document_tables(filename: str):
+    """Get all tables from document."""
+    try:
+        structure_response = await get_document_structure(filename)
+        if isinstance(structure_response, JSONResponse):
+            structure_data = json.loads(structure_response.body.decode())
+            if "error" in structure_data:
+                return structure_response
+            
+            return JSONResponse(content={
+                "filename": filename,
+                "tables": structure_data.get("tables", []),
+                "table_count": len(structure_data.get("tables", []))
+            })
+        
+        return JSONResponse(
+            content={"error": "Failed to retrieve tables"},
+            status_code=500
+        )
+        
+    except Exception as e:
+        logger.error(f"Error extracting tables: {e}")
+        return JSONResponse(
+            content={"error": f"Failed to extract tables: {str(e)}"},
+            status_code=500
+        )
+
+
+@app.get("/document-export/{filename}")
+async def export_document_structure(filename: str, format: str = "json"):
+    """
+    Export document structure in various formats.
+    Supports: json, csv (for tables)
+    """
+    try:
+        structure_response = await get_document_structure(filename)
+        if isinstance(structure_response, JSONResponse):
+            structure_data = json.loads(structure_response.body.decode())
+            
+            if "error" in structure_data:
+                return structure_response
+            
+            if format == "json":
+                return JSONResponse(content=structure_data)
+            
+            elif format == "csv" and structure_data.get("tables"):
+                # Export tables as CSV (simplified)
+                csv_data = []
+                for table in structure_data["tables"]:
+                    csv_data.append(table["columns"])
+                    csv_data.extend(table["rows"])
+                
+                return JSONResponse(content={
+                    "format": "csv",
+                    "data": csv_data
+                })
+            
+            else:
+                return JSONResponse(
+                    content={"error": f"Unsupported format: {format}"},
+                    status_code=400
+                )
+        
+        return JSONResponse(
+            content={"error": "Failed to export structure"},
+            status_code=500
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting structure: {e}")
+        return JSONResponse(
+            content={"error": f"Export failed: {str(e)}"},
+            status_code=500
+        )
 
 if __name__ == "__main__":
     import uvicorn

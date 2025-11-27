@@ -215,11 +215,127 @@
             background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
             border-left: 4px solid #22c55e;
         }
+
+    /* Document Structure Viewer Styles */
+    #document-structure-viewer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 800px;
+        height: 100vh;
+        background: white;
+        box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tab-button.active {
+        border-bottom-color: #4f46e5;
+        color: #4f46e5;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .entity-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-right: 6px;
+        margin-bottom: 6px;
+    }
+
+    .structure-stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .structure-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .structure-section-card {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #4f46e5;
+    }
+
+    .structure-table-container {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    .structure-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    .structure-table th {
+        background-color: #f8fafc;
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 600;
+    }
+
+    .structure-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .structure-table tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .structure-hierarchy-item {
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #4f46e5;
+    }
+
+    .structure-hierarchy-item.level-2 {
+        border-left-color: #10b981;
+        margin-left: 20px;
+    }
+
+    .structure-hierarchy-item.level-3 {
+        border-left-color: #f59e0b;
+        margin-left: 40px;
+    }
+
+    .structure-hierarchy-item.level-4 {
+        border-left-color: #ef4444;
+        margin-left: 60px;
+    }
     </style>
 </head>
 <body class="h-screen flex flex-col">
     <!-- Top Navigation -->
-    <header class="bg-white shadow-sm z-20">
+        <header class="bg-white shadow-sm z-20">
         <div class="px-4 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-4">
                 <button id="sidebar-toggle" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
@@ -234,6 +350,11 @@
             </div>
             
             <div class="flex items-center space-x-3">
+                <!-- Structure Viewer Button -->
+                <button id="toggle-structure-viewer" class="w-10 h-10 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-all flex items-center justify-center">
+                    <i class="bi bi-diagram-3 text-lg"></i>
+                </button>
+                
                 <!-- Status Indicator -->
                 <div id="status-indicator" class="hidden">
                     <div class="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 rounded-full">
@@ -275,6 +396,11 @@
             </div>
         </div>
     </header>
+
+    <!-- Keep the original fixed position button as well if you want it to stay at bottom right -->
+    <button id="toggle-structure-viewer-fixed" class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all z-30 flex items-center justify-center">
+        <i class="bi bi-diagram-3 text-xl"></i>
+    </button>
 
     <!-- Main Content Area -->
     <div class="flex flex-1 overflow-hidden">
@@ -835,6 +961,11 @@
             
             document.getElementById('document-title').textContent = filename;
             loadingOverlay.classList.add('hidden');
+
+            if (window.documentStructureViewer) {
+                document.getElementById('structure-doc-selector').value = filename;
+                window.documentStructureViewer.loadDocumentStructure(filename);
+            }
         }
         
         function addDocumentToList(name, pageCount) {
@@ -884,6 +1015,10 @@
             // Update document count
             const count = documentsList.children.length;
             document.getElementById('document-count').textContent = `${count} document${count !== 1 ? 's' : ''}`;
+
+            if (window.documentStructureViewer) {
+                window.documentStructureViewer.loadDocumentList();
+            }
         }
         
         function sendMessage() {
@@ -1375,6 +1510,467 @@
         function formatTime(date) {
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
+
+
+    // Document Structure Viewer
+    class DocumentStructureViewer {
+        constructor() {
+            this.currentDocument = null;
+            this.structureData = null;
+            this.init();
+        }
+        
+        init() {
+            this.setupEventListeners();
+            this.loadDocumentList();
+        }
+        
+        setupEventListeners() {
+            // Structure viewer toggle
+            document.getElementById('toggle-structure-viewer').addEventListener('click', () => {
+                this.showStructureViewer();
+            });
+            
+            document.getElementById('close-structure-viewer').addEventListener('click', () => {
+                this.hideStructureViewer();
+            });
+            
+            // Document selector
+            document.getElementById('structure-doc-selector').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    this.loadDocumentStructure(e.target.value);
+                } else {
+                    this.showEmptyState();
+                }
+            });
+            
+            // Tab switching
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    this.switchTab(e.target.dataset.tab);
+                });
+            });
+        }
+        
+        showStructureViewer() {
+            document.getElementById('document-structure-viewer').classList.remove('translate-x-full');
+            this.loadDocumentList();
+        }
+        
+        hideStructureViewer() {
+            document.getElementById('document-structure-viewer').classList.add('translate-x-full');
+        }
+        
+        async loadDocumentList() {
+            try {
+                const response = await fetch('/list-documents/');
+                const documents = await response.json();
+                
+                const selector = document.getElementById('structure-doc-selector');
+                selector.innerHTML = '<option value="">Select a document...</option>';
+                
+                documents.forEach(doc => {
+                    const option = document.createElement('option');
+                    option.value = doc.name;
+                    option.textContent = doc.name;
+                    selector.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading document list:', error);
+                showNotification('Failed to load document list', 'error');
+            }
+        }
+        
+        async loadDocumentStructure(filename) {
+            this.showLoading();
+            
+            try {
+                const response = await fetch(`/document-structure/${encodeURIComponent(filename)}`);
+                const structureData = await response.json();
+                
+                if (response.ok) {
+                    this.structureData = structureData;
+                    this.currentDocument = filename;
+                    this.renderStructure();
+                } else {
+                    throw new Error(structureData.error || 'Failed to load structure');
+                }
+            } catch (error) {
+                console.error('Error loading document structure:', error);
+                this.showError('Failed to load document structure');
+                showNotification('Failed to load document structure', 'error');
+            }
+        }
+        
+        renderStructure() {
+            this.hideLoading();
+            document.getElementById('structure-content').classList.remove('hidden');
+            document.getElementById('structure-empty').classList.add('hidden');
+            
+            this.renderSummary();
+            this.renderHierarchy();
+            this.renderTables();
+            this.renderEntities();
+            this.renderSections();
+            
+            // Show summary tab by default
+            this.switchTab('summary');
+        }
+        
+        renderSummary() {
+            const summary = this.structureData.summary;
+            const content = document.getElementById('summary-content');
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-indigo-600">${summary.total_pages}</div>
+                        <div class="text-sm text-gray-500">Pages</div>
+                    </div>
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-green-600">${summary.total_words}</div>
+                        <div class="text-sm text-gray-500">Words</div>
+                    </div>
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-blue-600">${summary.headings_count}</div>
+                        <div class="text-sm text-gray-500">Headings</div>
+                    </div>
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-purple-600">${summary.tables_count}</div>
+                        <div class="text-sm text-gray-500">Tables</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="structure-stat-card">
+                        <h3 class="font-semibold text-gray-800 mb-3">Document Information</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Document Type:</span>
+                                <span class="font-medium">${summary.document_type}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Reading Time:</span>
+                                <span class="font-medium">${summary.estimated_reading_time}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Lines:</span>
+                                <span class="font-medium">${summary.total_lines}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Paragraphs:</span>
+                                <span class="font-medium">${summary.total_paragraphs}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Complexity:</span>
+                                <span class="font-medium">${summary.complexity_score || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="structure-stat-card">
+                        <h3 class="font-semibold text-gray-800 mb-3">Content Analysis</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg. Sentence Length:</span>
+                                <span class="font-medium">${summary.avg_sentence_length || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg. Word Length:</span>
+                                <span class="font-medium">${summary.avg_word_length || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Sentences:</span>
+                                <span class="font-medium">${summary.total_sentences || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        renderHierarchy() {
+            const hierarchy = this.structureData.hierarchy || [];
+            const content = document.getElementById('hierarchy-content');
+            
+            if (hierarchy.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No hierarchical structure detected</p>';
+                return;
+            }
+            
+            content.innerHTML = hierarchy.map(item => `
+                <div class="structure-hierarchy-item level-${item.level}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded">Level ${item.level}</span>
+                                <span class="text-xs text-gray-500">${item.type}</span>
+                            </div>
+                            <div class="mt-1 font-medium">${this.escapeHtml(item.text)}</div>
+                        </div>
+                        <div class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            Page ${item.page}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        renderTables() {
+            const tables = this.structureData.tables || [];
+            const content = document.getElementById('tables-content');
+            
+            if (tables.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No tables detected</p>';
+                return;
+            }
+            
+            content.innerHTML = tables.map((table, index) => `
+                <div class="structure-table-container">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-800">Table ${index + 1}</h3>
+                        <div class="flex items-center space-x-2 text-sm text-gray-500">
+                            <span>${table.row_count || table.shape?.[0] || 0} rows × ${table.column_count || table.shape?.[1] || 0} columns</span>
+                            <span class="px-2 py-1 bg-gray-100 rounded">Lines ${table.start_line}-${table.end_line}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="structure-table">
+                            <thead>
+                                <tr>
+                                    ${(table.columns || []).map(col => `
+                                        <th>${this.escapeHtml(col)}</th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(table.rows || []).map(row => `
+                                    <tr>
+                                        ${row.map(cell => `
+                                            <td>${this.escapeHtml(cell)}</td>
+                                        `).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        renderEntities() {
+            const entities = this.structureData.entities || {};
+            const content = document.getElementById('entities-content');
+            
+            const entityTypes = {
+                organizations: { icon: 'bi-building', color: 'blue' },
+                people: { icon: 'bi-person', color: 'green' },
+                dates: { icon: 'bi-calendar', color: 'purple' },
+                emails: { icon: 'bi-envelope', color: 'indigo' },
+                phones: { icon: 'bi-telephone', color: 'pink' },
+                references: { icon: 'bi-card-text', color: 'yellow' }
+            };
+            
+            content.innerHTML = Object.entries(entityTypes).map(([type, config]) => {
+                const items = entities[type] || [];
+                if (items.length === 0) return '';
+                
+                return `
+                    <div class="structure-stat-card">
+                        <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <i class="bi ${config.icon} text-${config.color}-500 mr-2"></i>
+                            ${type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+                            <span class="ml-2 px-2 py-1 text-xs bg-${config.color}-100 text-${config.color}-800 rounded">
+                                ${items.length}
+                            </span>
+                        </h3>
+                        <div class="flex flex-wrap gap-2">
+                            ${items.map(item => `
+                                <span class="entity-tag bg-${config.color}-100 text-${config.color}-800">
+                                    ${this.escapeHtml(item)}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            if (content.innerHTML === '') {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No entities detected</p>';
+            }
+        }
+        
+        renderSections() {
+            const sections = this.structureData.sections || [];
+            const content = document.getElementById('sections-content');
+            
+            if (sections.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No sections detected</p>';
+                return;
+            }
+            
+            content.innerHTML = sections.map(section => `
+                <div class="structure-section-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold text-gray-800">${this.escapeHtml(section.title)}</h3>
+                        <div class="flex items-center space-x-2 text-sm text-gray-500">
+                            <span class="px-2 py-1 bg-gray-100 rounded">Level ${section.level}</span>
+                            <span>${section.word_count} words</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">${this.escapeHtml(section.content_preview || '')}</p>
+                    <div class="mt-2 text-xs text-gray-500">
+                        Line ${section.start_line} • ${section.type}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                if (button.dataset.tab === tabName) {
+                    button.classList.add('active', 'text-indigo-600', 'border-indigo-600');
+                    button.classList.remove('text-gray-500', 'border-transparent');
+                } else {
+                    button.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
+                    button.classList.add('text-gray-500', 'border-transparent');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                if (content.id === `tab-${tabName}`) {
+                    content.classList.remove('hidden');
+                    content.classList.add('active');
+                } else {
+                    content.classList.add('hidden');
+                    content.classList.remove('active');
+                }
+            });
+        }
+        
+        showLoading() {
+            document.getElementById('structure-loading').classList.remove('hidden');
+            document.getElementById('structure-content').classList.add('hidden');
+            document.getElementById('structure-empty').classList.add('hidden');
+        }
+        
+        hideLoading() {
+            document.getElementById('structure-loading').classList.add('hidden');
+        }
+        
+        showEmptyState() {
+            document.getElementById('structure-content').classList.add('hidden');
+            document.getElementById('structure-loading').classList.add('hidden');
+            document.getElementById('structure-empty').classList.remove('hidden');
+        }
+        
+        showError(message) {
+            this.showEmptyState();
+            document.getElementById('structure-empty').innerHTML = `
+                <i class="bi bi-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+                <p class="text-lg text-red-500">${message}</p>
+            `;
+        }
+        
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        window.documentStructureViewer = new DocumentStructureViewer();
+    });
     </script>
+
+    <!-- Document Structure Viewer -->
+<div id="document-structure-viewer" class="fixed top-0 right-0 w-full md:w-3/4 lg:w-2/3 xl:w-3/5 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+        <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+            <i class="bi bi-diagram-3 text-indigo-600 mr-2"></i>
+            Document Structure Analysis
+        </h2>
+        <button id="close-structure-viewer" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+            <i class="bi bi-x-lg text-xl"></i>
+        </button>
+    </div>
+    
+    <div class="flex-1 overflow-hidden flex flex-col">
+        <!-- Document Selector -->
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <select id="structure-doc-selector" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                <option value="">Select a document...</option>
+            </select>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="structure-loading" class="hidden p-8 text-center flex-1 flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4"></div>
+            <p class="text-gray-500">Analyzing document structure...</p>
+        </div>
+        
+        <!-- Content Tabs -->
+        <div id="structure-content" class="hidden flex-1 flex flex-col">
+            <div class="border-b border-gray-200 bg-white">
+                <nav class="flex -mb-px">
+                    <button class="tab-button active px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600" data-tab="summary">
+                        <i class="bi bi-card-text mr-2"></i>Summary
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="hierarchy">
+                        <i class="bi bi-diagram-3 mr-2"></i>Hierarchy
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="tables">
+                        <i class="bi bi-table mr-2"></i>Tables
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="entities">
+                        <i class="bi bi-tags mr-2"></i>Entities
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="sections">
+                        <i class="bi bi-journal-text mr-2"></i>Sections
+                    </button>
+                </nav>
+            </div>
+            
+            <!-- Tab Content -->
+            <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
+                <!-- Summary Tab -->
+                <div id="tab-summary" class="tab-content active">
+                    <div id="summary-content"></div>
+                </div>
+                
+                <!-- Hierarchy Tab -->
+                <div id="tab-hierarchy" class="tab-content hidden">
+                    <div id="hierarchy-content" class="space-y-2"></div>
+                </div>
+                
+                <!-- Tables Tab -->
+                <div id="tab-tables" class="tab-content hidden">
+                    <div id="tables-content" class="space-y-6"></div>
+                </div>
+                
+                <!-- Entities Tab -->
+                <div id="tab-entities" class="tab-content hidden">
+                    <div id="entities-content" class="space-y-4"></div>
+                </div>
+                
+                <!-- Sections Tab -->
+                <div id="tab-sections" class="tab-content hidden">
+                    <div id="sections-content" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="structure-empty" class="p-8 text-center text-gray-500 flex-1 flex flex-col items-center justify-center">
+            <i class="bi bi-file-earmark-text text-5xl mb-4 text-gray-300"></i>
+            <p class="text-lg">Select a document to view its structure</p>
+        </div>
+    </div>
+</div>
 </body>
 </html>
