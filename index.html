@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocuMind AI | Intelligent Document Analysis</title>
+    <title>GovKenyaGazette AI | Intelligent Document Analysis</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -331,6 +331,118 @@
         border-left-color: #ef4444;
         margin-left: 60px;
     }
+
+
+        /* Add to the existing <style> section */
+    .markdown-content {
+        line-height: 1.6;
+    }
+
+    .markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+        font-weight: 600;
+    }
+
+    .markdown-content h1 {
+        font-size: 1.8em;
+        border-bottom: 1px solid #eaecef;
+        padding-bottom: 0.3em;
+    }
+
+    .markdown-content h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid #eaecef;
+        padding-bottom: 0.3em;
+    }
+
+    .markdown-content h3 {
+        font-size: 1.25em;
+    }
+
+    .markdown-content p {
+        margin-bottom: 1em;
+    }
+
+    .markdown-content ul, .markdown-content ol {
+        margin-bottom: 1em;
+        padding-left: 2em;
+    }
+
+    .markdown-content li {
+        margin-bottom: 0.25em;
+    }
+
+    .markdown-content blockquote {
+        padding: 0 1em;
+        color: #6a737d;
+        border-left: 0.25em solid #dfe2e5;
+        margin-bottom: 1em;
+    }
+
+    .markdown-content code {
+        padding: 0.2em 0.4em;
+        margin: 0;
+        font-size: 85%;
+        background-color: rgba(27,31,35,0.05);
+        border-radius: 3px;
+    }
+
+    .markdown-content pre {
+        padding: 16px;
+        overflow: auto;
+        font-size: 85%;
+        line-height: 1.45;
+        background-color: #f6f8fa;
+        border-radius: 3px;
+        margin-bottom: 1em;
+    }
+
+    .markdown-content pre code {
+        display: inline;
+        max-width: auto;
+        padding: 0;
+        margin: 0;
+        overflow: visible;
+        line-height: inherit;
+        word-wrap: normal;
+        background-color: transparent;
+        border: 0;
+    }
+
+    .markdown-content table {
+        border-spacing: 0;
+        border-collapse: collapse;
+        margin-bottom: 1em;
+        width: 100%;
+    }
+
+    .markdown-content table th, .markdown-content table td {
+        padding: 6px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    .markdown-content table th {
+        font-weight: 600;
+        background-color: #f6f8fa;
+    }
+
+    .markdown-content table tr:nth-child(2n) {
+        background-color: #f6f8fa;
+    }
+
+    .markdown-content hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+
+    .markdown-content img {
+        max-width: 100%;
+        height: auto;
+    }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -345,7 +457,7 @@
                     <div class="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center mr-2">
                         <i class="bi bi-file-text text-white text-sm"></i>
                     </div>
-                    <h1 class="text-xl font-bold text-gray-800">DocuMind AI</h1>
+                    <h1 class="text-xl font-bold text-gray-800">GovKenyaGazette AI</h1>
                 </div>
             </div>
             
@@ -560,6 +672,7 @@
                     <div class="flex space-x-2">
                         <button id="search-type-general" class="search-type-btn active px-4 py-2 bg-indigo-500 text-white rounded-lg">General Search</button>
                         <button id="search-type-entity" class="search-type-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">Entity Search</button>
+                        <button id="search-type-table" class="search-type-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">Table Search</button>
                         <button id="search-type-structured" class="search-type-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">Structured Query</button>
                     </div>
                 </div>
@@ -577,6 +690,14 @@
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 mb-4">
                     <button id="perform-entity-search" class="w-full bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium">
                         Search Entity
+                    </button>
+                </div>
+
+                <div id="table-search-input" class="hidden">
+                    <input type="text" id="table-search-input-field" placeholder="Search for tables (e.g., revenue, budget, schedule)..." 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 mb-4">
+                    <button id="perform-table-search" class="w-full bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium">
+                        Search Tables
                     </button>
                 </div>
                 
@@ -609,1175 +730,1676 @@
     <div id="notification-container" class="fixed top-4 right-4 z-50 space-y-3"></div>
 
     <script>
-        // Global variables
-        let ws;
-        let currentFile = null;
-        let currentModel = 'granite3.1-moe:1b';
-        let isHighlighting = false;
-        let reconnectAttempts = 0;
-        const maxReconnectAttempts = 5;
-        
-        // DOM Elements
-        const sidebar = document.getElementById('sidebar');
-        const sidebarToggle = document.getElementById('sidebar-toggle');
-        const uploadBtn = document.getElementById('upload-btn');
-        const fileUpload = document.getElementById('file-upload');
-        const uploadFromViewer = document.getElementById('upload-from-viewer');
-        const messageInput = document.getElementById('message-input');
-        const sendMessageBtn = document.getElementById('send-message');
-        const chatMessages = document.getElementById('chat-messages');
-        const ragSearchModal = document.getElementById('rag-search-modal');
-        const ragSearchBtn = document.getElementById('rag-search-btn');
-        const closeRagSearch = document.getElementById('close-rag-search');
-        const ragSearchResults = document.getElementById('rag-search-results');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const notificationContainer = document.getElementById('notification-container');
-        const connectionStatus = document.getElementById('connection-status');
-        const statusIndicator = document.getElementById('status-indicator');
-        
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeApp();
-            setupEventListeners();
-            connectWebSocket();
-        });
-        
-        function initializeApp() {
-            // Set active model
-            setActiveModel(currentModel);
+        // ============================================
+        // 1. DOM ELEMENT CACHE
+        // ============================================
+        const DOM = {
+            sidebar: null,
+            sidebarToggle: null,
+            uploadBtn: null,
+            fileUpload: null,
+            uploadFromViewer: null,
+            messageInput: null,
+            sendMessageBtn: null,
+            chatMessages: null,
+            ragSearchModal: null,
+            ragSearchBtn: null,
+            closeRagSearch: null,
+            ragSearchResults: null,
+            ragSearchInput: null,
+            loadingOverlay: null,
+            notificationContainer: null,
+            connectionStatus: null,
+            statusIndicator: null,
+            documentTitle: null,
+            documentContent: null,
+            documentsList: null,
+            modelDropdown: null,
             
-            // Load any saved data
-            loadConversationHistory();
-            loadDocuments();
-        }
-        
-        function setupEventListeners() {
-            // Sidebar toggle
-            sidebarToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('-translate-x-full');
-            });
+            init() {
+                this.sidebar = document.getElementById('sidebar');
+                this.sidebarToggle = document.getElementById('sidebar-toggle');
+                this.uploadBtn = document.getElementById('upload-btn');
+                this.fileUpload = document.getElementById('file-upload');
+                this.uploadFromViewer = document.getElementById('upload-from-viewer');
+                this.messageInput = document.getElementById('message-input');
+                this.sendMessageBtn = document.getElementById('send-message');
+                this.chatMessages = document.getElementById('chat-messages');
+                this.ragSearchModal = document.getElementById('rag-search-modal');
+                this.ragSearchBtn = document.getElementById('rag-search-btn');
+                this.closeRagSearch = document.getElementById('close-rag-search');
+                this.ragSearchResults = document.getElementById('rag-search-results');
+                this.ragSearchInput = document.getElementById('rag-search-input');
+                this.loadingOverlay = document.getElementById('loading-overlay');
+                this.notificationContainer = document.getElementById('notification-container');
+                this.connectionStatus = document.getElementById('connection-status');
+                this.statusIndicator = document.getElementById('status-indicator');
+                this.documentTitle = document.getElementById('document-title');
+                this.documentContent = document.getElementById('document-content');
+                this.documentsList = document.getElementById('documents-list');
+                this.modelDropdown = document.getElementById('model-dropdown');
+            }
+        };
+
+        // ============================================
+        // 2. UTILITY FUNCTIONS (Optimized)
+        // ============================================
+        const Utils = {
+            escapeHtmlCache: new Map(),
             
-            // Upload buttons
-            uploadBtn.addEventListener('click', () => fileUpload.click());
-            uploadFromViewer.addEventListener('click', () => fileUpload.click());
-            
-            // File upload handler
-            fileUpload.addEventListener('change', handleFileUpload);
-            
-            // Chat functionality
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    sendMessage();
+            escapeHtml(text) {
+                if (!text) return '';
+                if (this.escapeHtmlCache.has(text)) {
+                    return this.escapeHtmlCache.get(text);
                 }
-            });
-            
-            sendMessageBtn.addEventListener('click', sendMessage);
-            
-            // Suggestion buttons
-            document.querySelectorAll('.suggestion-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    messageInput.value = e.target.textContent;
-                    messageInput.focus();
-                });
-            });
-            
-            // RAG Search
-            ragSearchBtn.addEventListener('click', () => {
-                ragSearchModal.classList.remove('hidden');
-                document.getElementById('rag-search-input').focus();
-            });
-            
-            closeRagSearch.addEventListener('click', () => {
-                ragSearchModal.classList.add('hidden');
-            });
-            
-            // Search type buttons
-            document.getElementById('search-type-general').addEventListener('click', () => {
-                setSearchType('general');
-            });
-            
-            document.getElementById('search-type-entity').addEventListener('click', () => {
-                setSearchType('entity');
-            });
-            
-            document.getElementById('search-type-structured').addEventListener('click', () => {
-                setSearchType('structured');
-            });
-            
-            // Search buttons
-            document.getElementById('perform-rag-search').addEventListener('click', performRagSearch);
-            document.getElementById('perform-entity-search').addEventListener('click', performEntitySearch);
-            document.getElementById('perform-structured-search').addEventListener('click', performStructuredQuery);
-            
-            // Enter key for search inputs
-            document.getElementById('rag-search-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') performRagSearch();
-            });
-            
-            document.getElementById('entity-search-input-field').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') performEntitySearch();
-            });
-            
-            document.getElementById('structured-search-input-field').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') performStructuredQuery();
-            });
-            
-            // Model selector
-            document.getElementById('model-selector-btn').addEventListener('click', () => {
-                document.getElementById('model-dropdown').classList.toggle('hidden');
-            });
-            
-            document.querySelectorAll('#model-dropdown button').forEach(button => {
-                button.addEventListener('click', () => {
-                    currentModel = button.dataset.model;
-                    setActiveModel(currentModel);
-                    document.getElementById('model-dropdown').classList.add('hidden');
-                });
-            });
-            
-            // Close model dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.relative')) {
-                    document.getElementById('model-dropdown').classList.add('hidden');
-                }
-            });
-            
-            // Highlight toggle
-            document.getElementById('toggle-highlight').addEventListener('click', () => {
-                isHighlighting = !isHighlighting;
-                const btn = document.getElementById('toggle-highlight');
-                if (isHighlighting) {
-                    btn.classList.add('text-yellow-600', 'bg-yellow-50');
-                } else {
-                    btn.classList.remove('text-yellow-600', 'bg-yellow-50');
-                }
-            });
-        }
-        
-        function setActiveModel(model) {
-            // Update UI to show active model
-            document.querySelectorAll('.model-check').forEach(check => {
-                check.classList.add('hidden');
-            });
-            
-            document.querySelector(`button[data-model="${model}"] .model-check`).classList.remove('hidden');
-            document.getElementById('model-selector-btn').querySelector('span').textContent = 
-                document.querySelector(`button[data-model="${model}"] span`).textContent;
-        }
-        
-        function setSearchType(type) {
-            // Reset all search type buttons
-            document.querySelectorAll('.search-type-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-indigo-500', 'text-white');
-                btn.classList.add('bg-gray-200', 'text-gray-700');
-            });
-            
-            // Hide all search inputs
-            document.getElementById('general-search-input').classList.add('hidden');
-            document.getElementById('entity-search-input').classList.add('hidden');
-            document.getElementById('structured-search-input').classList.add('hidden');
-            
-            // Activate selected type
-            const activeBtn = document.getElementById(`search-type-${type}`);
-            activeBtn.classList.add('active', 'bg-indigo-500', 'text-white');
-            activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
-            
-            // Show corresponding input
-            document.getElementById(`${type}-search-input`).classList.remove('hidden');
-            
-            // Focus the input
-            document.getElementById(`${type}-search-input-field`).focus();
-        }
-        
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
-            
-            ws = new WebSocket(wsUrl);
-            
-            ws.onopen = function() {
-                console.log('WebSocket connection established');
-                connectionStatus.className = 'w-2 h-2 rounded-full bg-green-500';
-                reconnectAttempts = 0;
                 
-                // Request initial status
-                ws.send(JSON.stringify({
-                    type: 'status_request'
-                }));
-            };
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                const escaped = String(text).replace(/[&<>"']/g, m => map[m]);
+                
+                // Prevent memory leak
+                if (this.escapeHtmlCache.size > 1000) {
+                    this.escapeHtmlCache.clear();
+                }
+                this.escapeHtmlCache.set(text, escaped);
+                return escaped;
+            },
             
-            ws.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    handleWebSocketMessage(data);
-                } catch (error) {
-                    console.error('Error parsing WebSocket message:', error);
-                    // If it's not JSON, display it as a plain message
-                    if (event.data && event.data.trim()) {
-                        addMessageToChat(event.data, 'bot');
+            formatTime(date) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            },
+            
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            },
+            
+            throttle(func, limit) {
+                let inThrottle;
+                return function(...args) {
+                    if (!inThrottle) {
+                        func.apply(this, args);
+                        inThrottle = true;
+                        setTimeout(() => inThrottle = false, limit);
                     }
-                }
-            };
-            
-            ws.onclose = function() {
-                console.log('WebSocket connection closed');
-                connectionStatus.className = 'w-2 h-2 rounded-full bg-red-500';
-                
-                // Attempt to reconnect after a delay
-                if (reconnectAttempts < maxReconnectAttempts) {
-                    reconnectAttempts++;
-                    console.log(`Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`);
-                    setTimeout(connectWebSocket, 3000 * reconnectAttempts);
-                } else {
-                    showNotification('Connection lost. Please refresh the page.', 'error');
-                }
-            };
-            
-            ws.onerror = function(error) {
-                console.error('WebSocket error:', error);
-                showNotification('Connection error occurred', 'error');
-            };
-        }
-        
-        function handleWebSocketMessage(data) {
-            switch(data.type) {
-                case 'response':
-                    addMessageToChat(data.content, 'bot');
-                    break;
-                    
-                case 'status':
-                    updateStatusUI(data.data);
-                    break;
-                    
-                case 'indexing_complete':
-                    showNotification(`Indexing complete: ${data.documents_indexed} documents from ${data.filename}`, 'success');
-                    // Refresh status
-                    ws.send(JSON.stringify({
-                        type: 'status_request'
-                    }));
-                    break;
-                    
-                case 'error':
-                    showNotification(`Error: ${data.message}`, 'error');
-                    break;
-                    
-                default:
-                    console.log('Unknown message type:', data.type);
+                };
             }
-        }
-        
-        function updateStatusUI(statusData) {
-            if (statusData.is_indexing) {
-                statusIndicator.classList.remove('hidden');
-                document.getElementById('loading-message').textContent = statusData.status_message;
+        };
+
+        // ============================================
+        // 3. APPLICATION STATE
+        // ============================================
+        const AppState = {
+            ws: null,
+            currentFile: null,
+            currentModel: 'granite3.1-moe:1b',
+            isHighlighting: false,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 5
+        };
+
+        // ============================================
+        // 4. WEBSOCKET MANAGER
+        // ============================================
+        const WebSocketManager = {
+            connect() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
                 
-                if (!loadingOverlay.classList.contains('hidden')) {
-                    loadingOverlay.classList.remove('hidden');
-                }
-            } else {
-                statusIndicator.classList.add('hidden');
-                loadingOverlay.classList.add('hidden');
+                AppState.ws = new WebSocket(wsUrl);
                 
-                if (statusData.error) {
-                    showNotification(`Indexing error: ${statusData.error}`, 'error');
-                }
-            }
-        }
-        
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            currentFile = file;
-            
-            // Show loading overlay
-            loadingOverlay.classList.remove('hidden');
-            
-            // Update UI
-            document.getElementById('document-title').textContent = file.name;
-            document.getElementById('document-content').innerHTML = `
-                <div class="text-center py-16">
-                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
-                    <h3 class="text-lg font-medium text-gray-700">Processing ${file.name}</h3>
-                    <p class="text-gray-500 mt-2">Analyzing document content...</p>
-                </div>
-            `;
-            
-            // Upload file
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            fetch('/upload/', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(result => {
-                console.log('Upload response:', result);
-                
-                if (result.status === 'success' || result.status === 'processing') {
-                    showNotification('File uploaded successfully', 'success');
+                AppState.ws.onopen = () => {
+                    console.log('WebSocket connection established');
+                    DOM.connectionStatus.className = 'w-2 h-2 rounded-full bg-green-500';
+                    AppState.reconnectAttempts = 0;
                     
-                    // Add to documents list
-                    addDocumentToList(file.name, result.pages_extracted || 1);
-                    
-                    // Load the document content
-                    fetch(`/document-content/${encodeURIComponent(file.name)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            console.error('Error loading document content:', data.error);
-                            showNotification(`Error loading document: ${data.error}`, 'error');
-                            loadingOverlay.classList.add('hidden');
-                            return;
+                    AppState.ws.send(JSON.stringify({ type: 'status_request' }));
+                };
+                
+                AppState.ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing WebSocket message:', error);
+                        if (event.data?.trim()) {
+                            ChatManager.addMessage(event.data, 'bot');
                         }
-                        
-                        displayDocumentContent(data.content, file.name);
-                    })
-                    .catch(error => {
-                        console.error('Error fetching document content:', error);
-                        showNotification('Error loading document content', 'error');
-                        loadingOverlay.classList.add('hidden');
-                    });
-                } else {
-                    showNotification(`Upload failed: ${result.message}`, 'error');
-                    loadingOverlay.classList.add('hidden');
-                }
-            })
-            .catch(error => {
-                console.error('Upload failed:', error);
-                showNotification('File upload failed', 'error');
-                loadingOverlay.classList.add('hidden');
-            });
-        }
-
-        function displayDocumentContent(content, filename) {
-            document.getElementById('document-content').innerHTML = `
-                <div class="prose max-w-none">
-                    <h1>${escapeHtml(filename)}</h1>
-                    <div class="whitespace-pre-wrap">${escapeHtml(content)}</div>
-                </div>
-            `;
-            
-            document.getElementById('document-title').textContent = filename;
-            loadingOverlay.classList.add('hidden');
-
-            if (window.documentStructureViewer) {
-                document.getElementById('structure-doc-selector').value = filename;
-                window.documentStructureViewer.loadDocumentStructure(filename);
-            }
-        }
-        
-        function addDocumentToList(name, pageCount) {
-            const documentsList = document.getElementById('documents-list');
-            
-            // Remove placeholder if it exists
-            const placeholder = documentsList.querySelector('.text-center');
-            if (placeholder) {
-                placeholder.remove();
-            }
-            
-            const documentItem = document.createElement('div');
-            documentItem.className = 'document-card bg-white p-3 rounded-lg border border-gray-200 cursor-pointer';
-            documentItem.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                        <i class="bi bi-file-text text-indigo-600"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <h4 class="font-medium text-gray-800 truncate">${name}</h4>
-                        <p class="text-xs text-gray-500 mt-1">${pageCount} page${pageCount !== 1 ? 's' : ''} • Uploaded just now</p>
-                    </div>
-                </div>
-            `;
-            
-            documentItem.addEventListener('click', () => {
-                // Load the actual document
-                document.getElementById('document-title').textContent = name;
-                fetch(`/document-content/${encodeURIComponent(name)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        console.error('Error loading document content:', data.error);
-                        showNotification(`Error loading document: ${data.error}`, 'error');
-                        return;
                     }
-                    displayDocumentContent(data.content, name);
-                })
-                .catch(error => {
-                    console.error('Error fetching document content:', error);
-                    showNotification('Error loading document content', 'error');
-                });
-            });
-            
-            documentsList.prepend(documentItem);
-            
-            // Update document count
-            const count = documentsList.children.length;
-            document.getElementById('document-count').textContent = `${count} document${count !== 1 ? 's' : ''}`;
-
-            if (window.documentStructureViewer) {
-                window.documentStructureViewer.loadDocumentList();
-            }
-        }
-        
-        function sendMessage() {
-            const messageText = messageInput.value.trim();
-            
-            if (messageText && ws && ws.readyState === WebSocket.OPEN) {
-                // Add message to chat
-                addMessageToChat(messageText, 'user');
+                };
                 
-                // Send message via WebSocket
-                ws.send(JSON.stringify({
-                    type: 'query',
-                    content: messageText
-                }));
-                
-                // Clear input
-                messageInput.value = '';
-                
-                // Show typing indicator
-                showTypingIndicator();
-            }
-        }
-        
-        function addMessageToChat(message, sender) {
-            // Remove typing indicator if present
-            const typingIndicator = document.getElementById('typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-            
-            // Remove initial placeholder if it exists
-            const placeholder = chatMessages.querySelector('.text-center');
-            if (placeholder) {
-                placeholder.remove();
-            }
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `fade-in ${sender === 'user' ? 'flex justify-end' : 'flex justify-start'}`;
-            
-            // Check if the message is a structured response
-            const structuredDisplay = displayStructuredResponse(message);
-            
-            if (structuredDisplay) {
-                messageDiv.innerHTML = structuredDisplay;
-            } else {
-                // Regular message
-                if (sender === 'user') {
-                    messageDiv.innerHTML = `
-                        <div class="message-bubble user-message">
-                            <div>${escapeHtml(message)}</div>
-                            <div class="text-xs opacity-75 mt-1 text-right">${formatTime(new Date())}</div>
-                        </div>
-                    `;
-                } else {
-                    messageDiv.innerHTML = `
-                        <div class="message-bubble bot-message">
-                            <div>${escapeHtml(message)}</div>
-                            <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
-                        </div>
-                    `;
-                }
-            }
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            
-            // Save to conversation history
-            saveMessageToHistory(message, sender);
-        }
-        
-        function displayStructuredResponse(response) {
-            try {
-                // Try to parse as JSON
-                const structuredData = typeof response === 'string' ? JSON.parse(response) : response;
-                
-                // Check if it's a structured gazette response
-                if (structuredData.Gazette_Notice_ID) {
-                    return `
-                        <div class="message-bubble bot-message">
-                            <div class="structured-response gazette-notice">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h3 class="text-lg font-semibold text-blue-800">${structuredData.Gazette_Notice_ID}</h3>
-                                    <span class="text-sm text-gray-500">Page: ${structuredData.Exact_Location_Page || 'N/A'}</span>
-                                </div>
-                                <p class="text-gray-700 mb-3">${structuredData.Summary}</p>
-                                
-                                ${structuredData.Appointed_Entities && structuredData.Appointed_Entities.length > 0 ? `
-                                    <div class="mt-3">
-                                        <h4 class="font-medium text-gray-800 mb-2">Appointed Entities:</h4>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                            ${structuredData.Appointed_Entities.map(entity => `
-                                                <div class="bg-white p-2 rounded border">
-                                                    <div class="font-medium text-sm">${entity.Name}</div>
-                                                    <div class="text-xs text-gray-600">${entity.Role}</div>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                ${structuredData.Key_Details && structuredData.Key_Details.length > 0 ? `
-                                    <div class="mt-3">
-                                        <h4 class="font-medium text-gray-800 mb-2">Key Details:</h4>
-                                        <div class="space-y-1">
-                                            ${structuredData.Key_Details.map(detail => `
-                                                <div class="flex">
-                                                    <div class="font-medium text-sm w-24">${detail.Category}:</div>
-                                                    <div class="text-sm">${detail.Value}</div>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
-                        </div>
-                    `;
-                }
-                
-                // Check if it's an entity search response
-                if (structuredData.results && Array.isArray(structuredData.results)) {
-                    return `
-                        <div class="message-bubble bot-message">
-                            <div class="structured-response entity-result">
-                                <h3 class="text-lg font-semibold mb-3">Entity Search Results</h3>
-                                <div class="space-y-3">
-                                    ${structuredData.results.map(result => `
-                                        <div class="bg-white p-3 rounded border">
-                                            <div class="flex justify-between items-start mb-2">
-                                                <h4 class="font-medium">${result.metadata.document_name || 'Unknown Document'}</h4>
-                                                <span class="relevance-badge">
-                                                    ${Math.round((result.relevance_score || 0) * 100)}% match
-                                                </span>
-                                            </div>
-                                            <p class="text-sm text-gray-700">${result.text.substring(0, 200)}${result.text.length > 200 ? '...' : ''}</p>
-                                            <div class="mt-2 flex justify-end">
-                                                <button class="text-xs text-blue-600 hover:text-blue-800 view-result" data-id="${result.metadata.id}">
-                                                    <i class="bi bi-eye mr-1"></i>View
-                                                </button>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
-                        </div>
-                    `;
-                }
-                
-                // If not a recognized structured format, return null
-                return null;
-            } catch (e) {
-                console.error('Error parsing structured response:', e);
-                return null;
-            }
-        }
-        
-        function showTypingIndicator() {
-            // Remove existing typing indicator
-            const existingIndicator = document.getElementById('typing-indicator');
-            if (existingIndicator) {
-                existingIndicator.remove();
-            }
-            
-            const typingDiv = document.createElement('div');
-            typingDiv.id = 'typing-indicator';
-            typingDiv.className = 'flex justify-start fade-in';
-            typingDiv.innerHTML = `
-                <div class="message-bubble bot-message">
-                    <div class="typing-indicator">
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                    </div>
-                </div>
-            `;
-            
-            chatMessages.appendChild(typingDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function performRagSearch() {
-            const query = document.getElementById('rag-search-input').value;
-            if (!query.trim()) {
-                showNotification('Please enter a search query', 'warning');
-                return;
-            }
-            
-            // Show loading state
-            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
-            
-            // Perform search via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'query',
-                    content: query
-                }));
-            } else {
-                showNotification('WebSocket not connected. Please wait for connection.', 'error');
-            }
-        }
-        
-        function performEntitySearch() {
-            const entityName = document.getElementById('entity-search-input-field').value;
-            if (!entityName.trim()) {
-                showNotification('Please enter an entity name', 'warning');
-                return;
-            }
-            
-            // Show loading state
-            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
-            
-            // Perform entity search via API
-            fetch('/entity-search/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    entity_name: entityName,
-                    n_results: 10
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showNotification(`Error: ${data.error}`, 'error');
-                    ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
-                } else {
-                    displayRagSearchResults(data.results);
-                }
-            })
-            .catch(error => {
-                console.error('Entity search error:', error);
-                showNotification('Entity search failed', 'error');
-                ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Search failed. Please try again.</p>';
-            });
-        }
-        
-        function performStructuredQuery() {
-            const query = document.getElementById('structured-search-input-field').value;
-            if (!query.trim()) {
-                showNotification('Please enter a query', 'warning');
-                return;
-            }
-            
-            // Show loading state
-            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
-            
-            // Perform structured query via API
-            fetch('/structured-query/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    query: query
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showNotification(`Error: ${data.error}`, 'error');
-                    ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
-                } else {
-                    // Display structured response
-                    const structuredDisplay = displayStructuredResponse(data);
-                    if (structuredDisplay) {
-                        ragSearchResults.innerHTML = structuredDisplay;
+                AppState.ws.onclose = () => {
+                    console.log('WebSocket connection closed');
+                    DOM.connectionStatus.className = 'w-2 h-2 rounded-full bg-red-500';
+                    
+                    if (AppState.reconnectAttempts < AppState.maxReconnectAttempts) {
+                        AppState.reconnectAttempts++;
+                        console.log(`Reconnecting... (${AppState.reconnectAttempts}/${AppState.maxReconnectAttempts})`);
+                        setTimeout(() => this.connect(), 3000 * AppState.reconnectAttempts);
                     } else {
-                        ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No structured data found</p>';
+                        NotificationManager.show('Connection lost. Please refresh the page.', 'error');
                     }
-                }
-            })
-            .catch(error => {
-                console.error('Structured query error:', error);
-                showNotification('Structured query failed', 'error');
-                ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Query failed. Please try again.</p>';
-            });
-        }
-        
-        function displayRagSearchResults(results) {
-            if (!results || results.length === 0) {
-                ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No results found</p>';
-                return;
-            }
-            
-            ragSearchResults.innerHTML = '';
-            
-            results.forEach(result => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'bg-gray-50 p-4 rounded-lg mb-3';
+                };
                 
-                // Check if this is a structured response
-                const structuredDisplay = displayStructuredResponse(result);
+                AppState.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    NotificationManager.show('Connection error occurred', 'error');
+                };
+            },
+            
+            handleMessage(data) {
+                const handlers = {
+                    response: () => ChatManager.addMessage(data.content, 'bot'),
+                    status: () => UIManager.updateStatus(data.data),
+                    indexing_complete: () => {
+                        NotificationManager.show(
+                            `Indexing complete: ${data.documents_indexed} documents from ${data.filename}`,
+                            'success'
+                        );
+                        AppState.ws.send(JSON.stringify({ type: 'status_request' }));
+                    },
+                    error: () => NotificationManager.show(`Error: ${data.message}`, 'error')
+                };
+                
+                const handler = handlers[data.type];
+                if (handler) {
+                    handler();
+                } else {
+                    console.log('Unknown message type:', data.type);
+                }
+            },
+            
+            send(data) {
+                if (AppState.ws?.readyState === WebSocket.OPEN) {
+                    AppState.ws.send(JSON.stringify(data));
+                    return true;
+                }
+                return false;
+            }
+        };
+
+        // ============================================
+        // 5. CHAT MANAGER (Optimized DOM updates)
+        // ============================================
+        const ChatManager = {
+            addMessage(message, sender) {
+                // Remove typing indicator
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                
+                // Remove placeholder
+                const placeholder = DOM.chatMessages.querySelector('.text-center');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `fade-in ${sender === 'user' ? 'flex justify-end' : 'flex justify-start'}`;
+                
+                const structuredDisplay = this.displayStructuredResponse(message);
+                
                 if (structuredDisplay) {
-                    resultItem.innerHTML = structuredDisplay;
+                    messageDiv.innerHTML = structuredDisplay;
                 } else {
-                    // Fallback to original display
-                    resultItem.innerHTML = `
-                        <div class="flex justify-between items-start mb-2">
-                            <h4 class="font-medium">${escapeHtml(result.title || 'Document Section')}</h4>
-                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                ${Math.round((result.relevance_score || result.relevance || 0) * 100)}% match
-                            </span>
-                        </div>
-                        <p class="text-sm text-gray-600 mb-2">${escapeHtml(result.text || result.content)}</p>
-                        <div class="text-xs text-gray-500">
-                            Source: ${escapeHtml(result.metadata?.document_name || result.source || 'Unknown')}
-                        </div>
-                        <div class="mt-2">
-                            <button class="text-xs text-blue-600 hover:text-blue-800 mr-3 view-result" data-id="${result.id}">
-                                <i class="bi bi-eye mr-1"></i>View
-                            </button>
-                            <button class="text-xs text-blue-600 hover:text-blue-800 ask-about-result" data-id="${result.id}">
-                                <i class="bi bi-question-circle mr-1"></i>Ask about this
-                            </button>
-                        </div>
-                    `;
+                    const timestamp = Utils.formatTime(new Date());
+                    const escapedMessage = Utils.escapeHtml(message);
+                    
+                    messageDiv.innerHTML = sender === 'user' 
+                        ? `<div class="message-bubble user-message">
+                            <div>${escapedMessage}</div>
+                            <div class="text-xs opacity-75 mt-1 text-right">${timestamp}</div>
+                        </div>`
+                        : `<div class="message-bubble bot-message">
+                            <div>${escapedMessage}</div>
+                            <div class="text-xs opacity-75 mt-1">${timestamp}</div>
+                        </div>`;
                 }
                 
-                ragSearchResults.appendChild(resultItem);
-            });
-            
-            // Add event listeners to buttons
-            document.querySelectorAll('.view-result').forEach(button => {
-                button.addEventListener('click', () => {
-                    // In a real implementation, this would navigate to the document and section
-                    showNotification('Navigating to result...', 'info');
-                    ragSearchModal.classList.add('hidden');
+                // Use requestAnimationFrame for smooth rendering
+                requestAnimationFrame(() => {
+                    DOM.chatMessages.appendChild(messageDiv);
+                    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
                 });
-            });
+                
+                this.saveToHistory(message, sender);
+            },
             
-            document.querySelectorAll('.ask-about-result').forEach(button => {
-                button.addEventListener('click', () => {
-                    const resultId = button.dataset.id;
-                    const result = results.find(r => r.id === resultId);
-                    if (result) {
-                        messageInput.value = `Explain this result: "${result.title || result.text}"`;
-                        ragSearchModal.classList.add('hidden');
-                        messageInput.focus();
+            displayStructuredResponse(response) {
+                try {
+                    const data = typeof response === 'string' ? JSON.parse(response) : response;
+                    
+                    if (data.Gazette_Notice_ID) {
+                        return this.renderGazetteNotice(data);
                     }
-                });
-            });
-        }
-        
-        function loadConversationHistory() {
-            // Fetch conversation history from the backend
-            fetch('/conversation-history/')
-            .then(response => response.json())
-            .then(history => {
-                if (history.error) {
-                    console.error('Error loading conversation history:', history.error);
-                    return;
-                }
-                
-                updateConversationHistoryUI(history);
-            })
-            .catch(error => {
-                console.error('Error loading conversation history:', error);
-            });
-        }
-        
-        function updateConversationHistoryUI(history) {
-            const historyContainer = document.getElementById('conversation-history');
-            
-            if (!history || history.length === 0) {
-                historyContainer.innerHTML = `
-                    <div class="text-center py-4 text-gray-400">
-                        <p class="text-sm">No conversations yet</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let historyHTML = '';
-            
-            history.forEach(conversation => {
-                const date = new Date(conversation.timestamp);
-                const formattedTime = formatTime(date);
-                
-                historyHTML += `
-                    <div class="history-item bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                        <div class="font-medium text-sm text-gray-800">${conversation.title}</div>
-                        <div class="text-xs text-gray-500 mt-1 truncate">${conversation.preview}</div>
-                        <div class="text-xs text-gray-400 mt-2">${formattedTime}</div>
-                    </div>
-                `;
-            });
-            
-            historyContainer.innerHTML = historyHTML;
-        }
-        
-        function loadDocuments() {
-            // Fetch documents from the backend
-            fetch('/collection-info/')
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    console.error('Error loading documents:', data.error);
-                    return;
-                }
-                
-                // Update document count
-                document.getElementById('document-count').textContent = `${data.total_documents || 0} document${data.total_documents !== 1 ? 's' : ''}`;
-                
-                // If there are documents, load them
-                if (data.total_documents > 0) {
-                    // Fetch actual documents
-                    fetch('/list-documents/')
-                    .then(response => response.json())
-                    .then(documents => {
-                        if (documents.error) {
-                            console.error('Error fetching documents:', documents.error);
-                            return;
-                        }
-                        
-                        // Clear placeholder if it exists
-                        const documentsList = document.getElementById('documents-list');
-                        const placeholder = documentsList.querySelector('.text-center');
-                        if (placeholder) {
-                            placeholder.remove();
-                        }
-                        
-                        // Add each document to the list
-                        documents.forEach(doc => {
-                            addDocumentToList(doc.name, doc.pages || 1);
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching documents:', error);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error loading collection info:', error);
-            });
-        }
-        
-        function saveMessageToHistory(message, sender) {
-            // In a real implementation, this would save to localStorage or an API
-            console.log('Saving message to history:', { message, sender });
-        }
-        
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `fade-in p-4 rounded-lg shadow-lg max-w-sm ${
-                type === 'success' ? 'bg-green-500 text-white' :
-                type === 'error' ? 'bg-red-500 text-white' :
-                type === 'warning' ? 'bg-yellow-500 text-white' :
-                'bg-indigo-500 text-white'
-            }`;
-            
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    <i class="bi ${
-                        type === 'success' ? 'bi-check-circle' :
-                        type === 'error' ? 'bi-exclamation-triangle' :
-                        type === 'warning' ? 'bi-exclamation-circle' :
-                        'bi-info-circle'
-                    } mr-2"></i>
-                    <span>${message}</span>
-                </div>
-            `;
-            
-            notificationContainer.appendChild(notification);
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
-                setTimeout(() => {
-                    notification.remove();
-                }, 300);
-            }, 5000);
-        }
-        
-        // Utility functions
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, m => map[m]);
-        }
-        
-        function formatTime(date) {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-
-    // Document Structure Viewer
-    class DocumentStructureViewer {
-        constructor() {
-            this.currentDocument = null;
-            this.structureData = null;
-            this.init();
-        }
-        
-        init() {
-            this.setupEventListeners();
-            this.loadDocumentList();
-        }
-        
-        setupEventListeners() {
-            // Structure viewer toggle
-            document.getElementById('toggle-structure-viewer').addEventListener('click', () => {
-                this.showStructureViewer();
-            });
-            
-            document.getElementById('close-structure-viewer').addEventListener('click', () => {
-                this.hideStructureViewer();
-            });
-            
-            // Document selector
-            document.getElementById('structure-doc-selector').addEventListener('change', (e) => {
-                if (e.target.value) {
-                    this.loadDocumentStructure(e.target.value);
-                } else {
-                    this.showEmptyState();
-                }
-            });
-            
-            // Tab switching
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    this.switchTab(e.target.dataset.tab);
-                });
-            });
-        }
-        
-        showStructureViewer() {
-            document.getElementById('document-structure-viewer').classList.remove('translate-x-full');
-            this.loadDocumentList();
-        }
-        
-        hideStructureViewer() {
-            document.getElementById('document-structure-viewer').classList.add('translate-x-full');
-        }
-        
-        async loadDocumentList() {
-            try {
-                const response = await fetch('/list-documents/');
-                const documents = await response.json();
-                
-                const selector = document.getElementById('structure-doc-selector');
-                selector.innerHTML = '<option value="">Select a document...</option>';
-                
-                documents.forEach(doc => {
-                    const option = document.createElement('option');
-                    option.value = doc.name;
-                    option.textContent = doc.name;
-                    selector.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loading document list:', error);
-                showNotification('Failed to load document list', 'error');
-            }
-        }
-        
-        async loadDocumentStructure(filename) {
-            this.showLoading();
-            
-            try {
-                const response = await fetch(`/document-structure/${encodeURIComponent(filename)}`);
-                const structureData = await response.json();
-                
-                if (response.ok) {
-                    this.structureData = structureData;
-                    this.currentDocument = filename;
-                    this.renderStructure();
-                } else {
-                    throw new Error(structureData.error || 'Failed to load structure');
-                }
-            } catch (error) {
-                console.error('Error loading document structure:', error);
-                this.showError('Failed to load document structure');
-                showNotification('Failed to load document structure', 'error');
-            }
-        }
-        
-        renderStructure() {
-            this.hideLoading();
-            document.getElementById('structure-content').classList.remove('hidden');
-            document.getElementById('structure-empty').classList.add('hidden');
-            
-            this.renderSummary();
-            this.renderHierarchy();
-            this.renderTables();
-            this.renderEntities();
-            this.renderSections();
-            
-            // Show summary tab by default
-            this.switchTab('summary');
-        }
-        
-        renderSummary() {
-            const summary = this.structureData.summary;
-            const content = document.getElementById('summary-content');
-            
-            content.innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="structure-stat-card text-center">
-                        <div class="text-2xl font-bold text-indigo-600">${summary.total_pages}</div>
-                        <div class="text-sm text-gray-500">Pages</div>
-                    </div>
-                    <div class="structure-stat-card text-center">
-                        <div class="text-2xl font-bold text-green-600">${summary.total_words}</div>
-                        <div class="text-sm text-gray-500">Words</div>
-                    </div>
-                    <div class="structure-stat-card text-center">
-                        <div class="text-2xl font-bold text-blue-600">${summary.headings_count}</div>
-                        <div class="text-sm text-gray-500">Headings</div>
-                    </div>
-                    <div class="structure-stat-card text-center">
-                        <div class="text-2xl font-bold text-purple-600">${summary.tables_count}</div>
-                        <div class="text-sm text-gray-500">Tables</div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="structure-stat-card">
-                        <h3 class="font-semibold text-gray-800 mb-3">Document Information</h3>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Document Type:</span>
-                                <span class="font-medium">${summary.document_type}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Reading Time:</span>
-                                <span class="font-medium">${summary.estimated_reading_time}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Lines:</span>
-                                <span class="font-medium">${summary.total_lines}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Paragraphs:</span>
-                                <span class="font-medium">${summary.total_paragraphs}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Complexity:</span>
-                                <span class="font-medium">${summary.complexity_score || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
                     
-                    <div class="structure-stat-card">
-                        <h3 class="font-semibold text-gray-800 mb-3">Content Analysis</h3>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Avg. Sentence Length:</span>
-                                <span class="font-medium">${summary.avg_sentence_length || 'N/A'}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Avg. Word Length:</span>
-                                <span class="font-medium">${summary.avg_word_length || 'N/A'}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Total Sentences:</span>
-                                <span class="font-medium">${summary.total_sentences || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        renderHierarchy() {
-            const hierarchy = this.structureData.hierarchy || [];
-            const content = document.getElementById('hierarchy-content');
-            
-            if (hierarchy.length === 0) {
-                content.innerHTML = '<p class="text-gray-500 text-center py-4">No hierarchical structure detected</p>';
-                return;
-            }
-            
-            content.innerHTML = hierarchy.map(item => `
-                <div class="structure-hierarchy-item level-${item.level}">
-                    <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded">Level ${item.level}</span>
-                                <span class="text-xs text-gray-500">${item.type}</span>
-                            </div>
-                            <div class="mt-1 font-medium">${this.escapeHtml(item.text)}</div>
-                        </div>
-                        <div class="text-xs text-gray-500 whitespace-nowrap ml-2">
-                            Page ${item.page}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        renderTables() {
-            const tables = this.structureData.tables || [];
-            const content = document.getElementById('tables-content');
-            
-            if (tables.length === 0) {
-                content.innerHTML = '<p class="text-gray-500 text-center py-4">No tables detected</p>';
-                return;
-            }
-            
-            content.innerHTML = tables.map((table, index) => `
-                <div class="structure-table-container">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-semibold text-gray-800">Table ${index + 1}</h3>
-                        <div class="flex items-center space-x-2 text-sm text-gray-500">
-                            <span>${table.row_count || table.shape?.[0] || 0} rows × ${table.column_count || table.shape?.[1] || 0} columns</span>
-                            <span class="px-2 py-1 bg-gray-100 rounded">Lines ${table.start_line}-${table.end_line}</span>
-                        </div>
-                    </div>
+                    if (data.results && Array.isArray(data.results)) {
+                        return this.renderEntityResults(data);
+                    }
                     
-                    <div class="overflow-x-auto">
-                        <table class="structure-table">
-                            <thead>
-                                <tr>
-                                    ${(table.columns || []).map(col => `
-                                        <th>${this.escapeHtml(col)}</th>
-                                    `).join('')}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${(table.rows || []).map(row => `
-                                    <tr>
-                                        ${row.map(cell => `
-                                            <td>${this.escapeHtml(cell)}</td>
-                                        `).join('')}
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        renderEntities() {
-            const entities = this.structureData.entities || {};
-            const content = document.getElementById('entities-content');
+                    return null;
+                } catch (e) {
+                    return null;
+                }
+            },
             
-            const entityTypes = {
-                organizations: { icon: 'bi-building', color: 'blue' },
-                people: { icon: 'bi-person', color: 'green' },
-                dates: { icon: 'bi-calendar', color: 'purple' },
-                emails: { icon: 'bi-envelope', color: 'indigo' },
-                phones: { icon: 'bi-telephone', color: 'pink' },
-                references: { icon: 'bi-card-text', color: 'yellow' }
-            };
-            
-            content.innerHTML = Object.entries(entityTypes).map(([type, config]) => {
-                const items = entities[type] || [];
-                if (items.length === 0) return '';
+            renderGazetteNotice(data) {
+                const timestamp = Utils.formatTime(new Date());
+                const entities = data.Appointed_Entities?.length 
+                    ? data.Appointed_Entities.map(e => 
+                        `<div class="bg-white p-2 rounded border">
+                            <div class="font-medium text-sm">${Utils.escapeHtml(e.Name)}</div>
+                            <div class="text-xs text-gray-600">${Utils.escapeHtml(e.Role)}</div>
+                        </div>`
+                    ).join('')
+                    : '';
+                
+                const details = data.Key_Details?.length
+                    ? data.Key_Details.map(d =>
+                        `<div class="flex">
+                            <div class="font-medium text-sm w-24">${Utils.escapeHtml(d.Category)}:</div>
+                            <div class="text-sm">${Utils.escapeHtml(d.Value)}</div>
+                        </div>`
+                    ).join('')
+                    : '';
                 
                 return `
-                    <div class="structure-stat-card">
+                    <div class="message-bubble bot-message">
+                        <div class="structured-response gazette-notice">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-semibold text-blue-800">${Utils.escapeHtml(data.Gazette_Notice_ID)}</h3>
+                                <span class="text-sm text-gray-500">Page: ${data.Exact_Location_Page || 'N/A'}</span>
+                            </div>
+                            <p class="text-gray-700 mb-3">${Utils.escapeHtml(data.Summary)}</p>
+                            ${entities ? `<div class="mt-3"><h4 class="font-medium text-gray-800 mb-2">Appointed Entities:</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${entities}</div></div>` : ''}
+                            ${details ? `<div class="mt-3"><h4 class="font-medium text-gray-800 mb-2">Key Details:</h4><div class="space-y-1">${details}</div></div>` : ''}
+                        </div>
+                        <div class="text-xs opacity-75 mt-1">${timestamp}</div>
+                    </div>
+                `;
+            },
+            
+            renderEntityResults(data) {
+                const timestamp = Utils.formatTime(new Date());
+                const results = data.results.map(result => {
+                    const text = result.text.substring(0, 200) + (result.text.length > 200 ? '...' : '');
+                    const score = Math.round((result.relevance_score || 0) * 100);
+                    
+                    return `
+                        <div class="bg-white p-3 rounded border">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-medium">${Utils.escapeHtml(result.metadata.document_name || 'Unknown')}</h4>
+                                <span class="relevance-badge">${score}% match</span>
+                            </div>
+                            <p class="text-sm text-gray-700">${Utils.escapeHtml(text)}</p>
+                            <div class="mt-2 flex justify-end">
+                                <button class="text-xs text-blue-600 hover:text-blue-800 view-result" data-id="${result.metadata.id}">
+                                    <i class="bi bi-eye mr-1"></i>View
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                return `
+                    <div class="message-bubble bot-message">
+                        <div class="structured-response entity-result">
+                            <h3 class="text-lg font-semibold mb-3">Entity Search Results</h3>
+                            <div class="space-y-3">${results}</div>
+                        </div>
+                        <div class="text-xs opacity-75 mt-1">${timestamp}</div>
+                    </div>
+                `;
+            },
+            
+            showTypingIndicator() {
+                const existing = document.getElementById('typing-indicator');
+                if (existing) return;
+                
+                const typingDiv = document.createElement('div');
+                typingDiv.id = 'typing-indicator';
+                typingDiv.className = 'flex justify-start fade-in';
+                typingDiv.innerHTML = `
+                    <div class="message-bubble bot-message">
+                        <div class="typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                `;
+                
+                requestAnimationFrame(() => {
+                    DOM.chatMessages.appendChild(typingDiv);
+                    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+                });
+            },
+            
+            sendMessage() {
+                const messageText = DOM.messageInput.value.trim();
+                
+                if (messageText && WebSocketManager.send({ type: 'query', content: messageText })) {
+                    this.addMessage(messageText, 'user');
+                    DOM.messageInput.value = '';
+                    this.showTypingIndicator();
+                }
+            },
+            
+            saveToHistory(message, sender) {
+                console.log('Saving message to history:', { message, sender });
+            }
+        };
+
+        // ============================================
+        // 6. NOTIFICATION MANAGER (Optimized)
+        // ============================================
+        const NotificationManager = {
+            activeNotifications: new Set(),
+            
+            show(message, type = 'info') {
+                // Limit active notifications
+                if (this.activeNotifications.size >= 3) {
+                    const oldest = this.activeNotifications.values().next().value;
+                    oldest?.remove();
+                }
+                
+                const notification = document.createElement('div');
+                notification.className = `fade-in p-4 rounded-lg shadow-lg max-w-sm ${
+                    type === 'success' ? 'bg-green-500 text-white' :
+                    type === 'error' ? 'bg-red-500 text-white' :
+                    type === 'warning' ? 'bg-yellow-500 text-white' :
+                    'bg-indigo-500 text-white'
+                }`;
+                
+                const icon = type === 'success' ? 'bi-check-circle' :
+                            type === 'error' ? 'bi-exclamation-triangle' :
+                            type === 'warning' ? 'bi-exclamation-circle' :
+                            'bi-info-circle';
+                
+                notification.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="bi ${icon} mr-2"></i>
+                        <span>${Utils.escapeHtml(message)}</span>
+                    </div>
+                `;
+                
+                this.activeNotifications.add(notification);
+                DOM.notificationContainer.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                    setTimeout(() => {
+                        notification.remove();
+                        this.activeNotifications.delete(notification);
+                    }, 300);
+                }, 5000);
+            }
+        };
+
+        // ============================================
+        // 7. UI MANAGER
+        // ============================================
+        const UIManager = {
+            updateStatus(statusData) {
+                if (statusData.is_indexing) {
+                    DOM.statusIndicator.classList.remove('hidden');
+                    document.getElementById('loading-message').textContent = statusData.status_message;
+                    DOM.loadingOverlay.classList.remove('hidden');
+                } else {
+                    DOM.statusIndicator.classList.add('hidden');
+                    DOM.loadingOverlay.classList.add('hidden');
+                    
+                    if (statusData.error) {
+                        NotificationManager.show(`Indexing error: ${statusData.error}`, 'error');
+                    }
+                }
+            },
+            
+            setActiveModel(model) {
+                document.querySelectorAll('.model-check').forEach(check => {
+                    check.classList.add('hidden');
+                });
+                
+                const activeCheck = document.querySelector(`button[data-model="${model}"] .model-check`);
+                if (activeCheck) {
+                    activeCheck.classList.remove('hidden');
+                    const modelName = document.querySelector(`button[data-model="${model}"] span`).textContent;
+                    document.getElementById('model-selector-btn').querySelector('span').textContent = modelName;
+                }
+            }
+        };
+
+        // ============================================
+        // 8. EVENT MANAGER (Optimized with delegation)
+        // ============================================
+        const EventManager = {
+            init() {
+                // Sidebar toggle
+                DOM.sidebarToggle.addEventListener('click', () => {
+                    DOM.sidebar.classList.toggle('-translate-x-full');
+                });
+                
+                // Upload handlers
+                DOM.uploadBtn.addEventListener('click', () => DOM.fileUpload.click());
+                DOM.uploadFromViewer.addEventListener('click', () => DOM.fileUpload.click());
+                DOM.fileUpload.addEventListener('change', FileManager.handleUpload.bind(FileManager));
+                
+                // Chat handlers
+                DOM.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') ChatManager.sendMessage();
+                });
+                DOM.sendMessageBtn.addEventListener('click', () => ChatManager.sendMessage());
+                
+                // Modal handlers
+                DOM.ragSearchBtn.addEventListener('click', () => {
+                    DOM.ragSearchModal.classList.remove('hidden');
+                    DOM.ragSearchInput.focus();
+                });
+                DOM.closeRagSearch.addEventListener('click', () => {
+                    DOM.ragSearchModal.classList.add('hidden');
+                });
+                
+                // Model selector with event delegation
+                document.getElementById('model-selector-btn').addEventListener('click', () => {
+                    DOM.modelDropdown.classList.toggle('hidden');
+                });
+                
+                DOM.modelDropdown.addEventListener('click', (e) => {
+                    const button = e.target.closest('button[data-model]');
+                    if (button) {
+                        AppState.currentModel = button.dataset.model;
+                        UIManager.setActiveModel(AppState.currentModel);
+                        DOM.modelDropdown.classList.add('hidden');
+                    }
+                });
+                
+                // Close dropdown on outside click
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.relative')) {
+                        DOM.modelDropdown.classList.add('hidden');
+                    }
+                });
+                
+                // Search with debouncing
+                const debouncedSearch = Utils.debounce(() => SearchManager.performRagSearch(), 300);
+                DOM.ragSearchInput.addEventListener('input', debouncedSearch);
+                
+                // Highlight toggle
+                document.getElementById('toggle-highlight').addEventListener('click', (e) => {
+                    AppState.isHighlighting = !AppState.isHighlighting;
+                    e.currentTarget.classList.toggle('text-yellow-600');
+                    e.currentTarget.classList.toggle('bg-yellow-50');
+                });
+                
+                // Suggestion buttons with event delegation
+                document.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('suggestion-btn')) {
+                        DOM.messageInput.value = e.target.textContent;
+                        DOM.messageInput.focus();
+                    }
+                });
+                
+                // Search type buttons with event delegation
+                document.addEventListener('click', (e) => {
+                    if (e.target.id === 'search-type-general') {
+                        SearchManager.setSearchType('general');
+                    } else if (e.target.id === 'search-type-entity') {
+                        SearchManager.setSearchType('entity');
+                    } else if (e.target.id === 'search-type-structured') {
+                        SearchManager.setSearchType('structured');
+                    } else if (e.target.id === 'search-type-table') {
+                        SearchManager.setSearchType('table');
+                    }
+                });
+                
+                // Search buttons with event delegation
+                document.addEventListener('click', (e) => {
+                    if (e.target.id === 'perform-rag-search') {
+                        SearchManager.performRagSearch();
+                    } else if (e.target.id === 'perform-entity-search') {
+                        SearchManager.performEntitySearch();
+                    } else if (e.target.id === 'perform-structured-search') {
+                        SearchManager.performStructuredQuery();
+                    } else if (e.target.id === 'perform-table-search') {
+                        SearchManager.performTableSearch();
+                    }
+                });
+                
+                // Enter key for search inputs
+                document.getElementById('entity-search-input-field').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') SearchManager.performEntitySearch();
+                });
+                
+                document.getElementById('structured-search-input-field').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') SearchManager.performStructuredQuery();
+                });
+                
+                document.getElementById('table-search-input-field').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') SearchManager.performTableSearch();
+                });
+                
+                // View result buttons with event delegation
+                document.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('view-result')) {
+                        NotificationManager.show('Navigating to result...', 'info');
+                        DOM.ragSearchModal.classList.add('hidden');
+                    }
+                });
+                
+                // Ask about result buttons with event delegation
+                document.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('ask-about-result')) {
+                        const resultId = e.target.dataset.id;
+                        const result = SearchManager.lastResults?.find(r => r.id === resultId);
+                        if (result) {
+                            DOM.messageInput.value = `Explain this result: "${result.title || result.text}"`;
+                            DOM.ragSearchModal.classList.add('hidden');
+                            DOM.messageInput.focus();
+                        }
+                    }
+                });
+                
+                // View table result buttons with event delegation
+                document.addEventListener('click', async (e) => {
+                    if (e.target.classList.contains('view-table-result')) {
+                        const tableId = e.target.dataset.tableId;
+                        const table = SearchManager.lastTableResults?.tables?.find(t => t.table_id === tableId);
+                        if (table) {
+                            DOM.ragSearchModal.classList.add('hidden');
+                            
+                            try {
+                                const response = await fetch(`/document-markdown/${encodeURIComponent(table.file_name)}`);
+                                const data = await response.json();
+                                
+                                if (data.error) {
+                                    console.error('Error loading document content:', data.error);
+                                    NotificationManager.show(`Error loading document: ${data.error}`, 'error');
+                                    return;
+                                }
+                                
+                                DocumentManager.displayContent(data.content, table.file_name);
+                                
+                                setTimeout(() => {
+                                    NotificationManager.show(`Viewing table from ${table.file_name}`, 'info');
+                                }, 500);
+                            } catch (error) {
+                                console.error('Error fetching document content:', error);
+                                NotificationManager.show('Error loading document content', 'error');
+                            }
+                        }
+                    }
+                });
+            }
+        };
+
+        // ============================================
+        // 9. FILE MANAGER (Optimized)
+        // ============================================
+        const FileManager = {
+            async handleUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                AppState.currentFile = file;
+                DOM.loadingOverlay.classList.remove('hidden');
+                
+                DOM.documentTitle.textContent = file.name;
+                DOM.documentContent.innerHTML = `
+                    <div class="text-center py-16">
+                        <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+                        <h3 class="text-lg font-medium text-gray-700">Processing ${Utils.escapeHtml(file.name)}</h3>
+                        <p class="text-gray-500 mt-2">Analyzing document content...</p>
+                    </div>
+                `;
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch('/upload/', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success' || result.status === 'processing') {
+                        NotificationManager.show('File uploaded successfully', 'success');
+                        DocumentManager.addToList(file.name, result.pages_extracted || 1);
+                        await DocumentManager.loadContent(file.name);
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } catch (error) {
+                    console.error('Upload failed:', error);
+                    NotificationManager.show('File upload failed', 'error');
+                    DOM.loadingOverlay.classList.add('hidden');
+                    // Reset document content on error
+                    DOM.documentContent.innerHTML = `
+                        <div class="text-center py-16">
+                            <div class="text-red-500 text-6xl mb-4">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-700">Upload Failed</h3>
+                            <p class="text-gray-500 mt-2">There was an error processing your document.</p>
+                            <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors" onclick="document.getElementById('file-upload').click()">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        // ============================================
+        // 10. DOCUMENT MANAGER (Optimized with fragments)
+        // ============================================
+        const DocumentManager = {
+            addToList(name, pageCount, hasDoclingStructure = false) {
+                const placeholder = DOM.documentsList.querySelector('.text-center');
+                if (placeholder) placeholder.remove();
+                
+                const item = document.createElement('div');
+                item.className = 'document-card bg-white p-3 rounded-lg border border-gray-200 cursor-pointer';
+                
+                const structureIndicator = hasDoclingStructure 
+                    ? '<span class="ml-auto text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">Enhanced Structure</span>'
+                    : '';
+                
+                item.innerHTML = `
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                            <i class="bi bi-file-text text-indigo-600"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-medium text-gray-800 truncate">${Utils.escapeHtml(name)}</h4>
+                            <p class="text-xs text-gray-500 mt-1">${pageCount} page${pageCount !== 1 ? 's' : ''} • Uploaded just now</p>
+                        </div>
+                        ${structureIndicator}
+                    </div>
+                `;
+                
+                item.addEventListener('click', () => this.loadContent(name));
+                DOM.documentsList.prepend(item);
+                
+                const count = DOM.documentsList.children.length;
+                document.getElementById('document-count').textContent = `${count} document${count !== 1 ? 's' : ''}`;
+                
+                if (window.documentStructureViewer) {
+                    window.documentStructureViewer.loadDocumentList();
+                }
+            },
+            
+            async loadContent(filename) {
+                // Set a timeout to hide the loading overlay after 30 seconds
+                const loadingTimeout = setTimeout(() => {
+                    DOM.loadingOverlay.classList.add('hidden');
+                    NotificationManager.show('Document loading timed out. Please try again.', 'warning');
+                    
+                    DOM.documentContent.innerHTML = `
+                        <div class="text-center py-16">
+                            <div class="text-yellow-500 text-6xl mb-4">
+                                <i class="bi bi-clock-history"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-700">Loading Timed Out</h3>
+                            <p class="text-gray-500 mt-2">It took too long to load this document.</p>
+                            <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors" onclick="DocumentManager.loadContent('${Utils.escapeHtml(filename)}')">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                }, 30000);
+                try {
+                    const response = await fetch(`/document-markdown/${encodeURIComponent(filename)}`);
+                    const data = await response.json();
+
+                    clearTimeout(loadingTimeout);
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    this.displayContent(data.content, filename);
+                } catch (error) {
+                    clearTimeout(loadingTimeout);
+                    console.error('Error loading document:', error);
+                    NotificationManager.show('Error loading document content', 'error');
+                    DOM.loadingOverlay.classList.add('hidden');
+                    DOM.documentContent.innerHTML = `
+                        <div class="text-center py-16">
+                            <div class="text-red-500 text-6xl mb-4">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-700">Error Loading Document</h3>
+                            <p class="text-gray-500 mt-2">${error.message || 'An unknown error occurred'}</p>
+                            <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors" onclick="DocumentManager.loadContent('${Utils.escapeHtml(filename)}')">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                }
+            },
+            
+            displayContent(content, filename) {
+                const isMarkdown = content.includes('**') || content.includes('#') || content.includes('---');
+                
+                DOM.documentContent.innerHTML = isMarkdown
+                    ? `<div class="prose max-w-none">
+                        <h1>${Utils.escapeHtml(filename)}</h1>
+                        <div class="markdown-content">${this.parseMarkdown(content)}</div>
+                    </div>`
+                    : `<div class="prose max-w-none">
+                        <h1>${Utils.escapeHtml(filename)}</h1>
+                        <div class="whitespace-pre-wrap">${Utils.escapeHtml(content)}</div>
+                    </div>`;
+                
+                DOM.documentTitle.textContent = filename;
+                DOM.loadingOverlay.classList.add('hidden');
+                
+                if (window.documentStructureViewer) {
+                    document.getElementById('structure-doc-selector').value = filename;
+                    window.documentStructureViewer.loadDocumentStructure(filename);
+                }
+            },
+            
+            parseMarkdown(markdown) {
+                return markdown
+                    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                    .replace(/\n/g, '<br>');
+            }
+        };
+
+        // ============================================
+        // 11. SEARCH MANAGER
+        // ============================================
+        const SearchManager = {
+            lastResults: null,
+            lastTableResults: null,
+            
+            async performRagSearch() {
+                const query = DOM.ragSearchInput.value.trim();
+                if (!query) {
+                    NotificationManager.show('Please enter a search query', 'warning');
+                    return;
+                }
+                
+                DOM.ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+                
+                if (!WebSocketManager.send({ type: 'query', content: query })) {
+                    NotificationManager.show('WebSocket not connected. Please wait.', 'error');
+                }
+            },
+            
+            async performEntitySearch() {
+                const entityName = document.getElementById('entity-search-input-field').value.trim();
+                if (!entityName) {
+                    NotificationManager.show('Please enter an entity name', 'warning');
+                    return;
+                }
+                
+                DOM.ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+                
+                try {
+                    const response = await fetch('/entity-search/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            entity_name: entityName,
+                            n_results: 10
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        NotificationManager.show(`Error: ${data.error}`, 'error');
+                        DOM.ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
+                    } else {
+                        this.displayRagSearchResults(data.results);
+                    }
+                } catch (error) {
+                    console.error('Entity search error:', error);
+                    NotificationManager.show('Entity search failed', 'error');
+                    DOM.ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Search failed. Please try again.</p>';
+                }
+            },
+            
+            async performStructuredQuery() {
+                const query = document.getElementById('structured-search-input-field').value.trim();
+                if (!query) {
+                    NotificationManager.show('Please enter a query', 'warning');
+                    return;
+                }
+                
+                DOM.ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+                
+                try {
+                    const response = await fetch('/structured-query/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            query: query
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        NotificationManager.show(`Error: ${data.error}`, 'error');
+                        DOM.ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
+                    } else {
+                        const structuredDisplay = ChatManager.displayStructuredResponse(data);
+                        if (structuredDisplay) {
+                            DOM.ragSearchResults.innerHTML = structuredDisplay;
+                        } else {
+                            DOM.ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No structured data found</p>';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Structured query error:', error);
+                    NotificationManager.show('Structured query failed', 'error');
+                    DOM.ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Query failed. Please try again.</p>';
+                }
+            },
+            
+            async performTableSearch() {
+                const query = document.getElementById('table-search-input-field').value.trim();
+                if (!query) {
+                    NotificationManager.show('Please enter a search query', 'warning');
+                    return;
+                }
+                
+                DOM.ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+                
+                try {
+                    const response = await fetch('/table-search/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            query: query,
+                            n_results: 10
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    this.lastTableResults = data;
+                    
+                    if (data.error) {
+                        NotificationManager.show(`Error: ${data.error}`, 'error');
+                        DOM.ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
+                    } else {
+                        this.displayTableSearchResults(data);
+                    }
+                } catch (error) {
+                    console.error('Table search error:', error);
+                    NotificationManager.show('Table search failed', 'error');
+                    DOM.ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Search failed. Please try again.</p>';
+                }
+            },
+            
+            displayRagSearchResults(results) {
+                if (!results || results.length === 0) {
+                    DOM.ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No results found</p>';
+                    return;
+                }
+                
+                this.lastResults = results;
+                
+                const fragment = document.createDocumentFragment();
+                
+                results.forEach(result => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'bg-gray-50 p-4 rounded-lg mb-3';
+                    
+                    const structuredDisplay = ChatManager.displayStructuredResponse(result);
+                    if (structuredDisplay) {
+                        resultItem.innerHTML = structuredDisplay;
+                    } else {
+                        resultItem.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-medium">${Utils.escapeHtml(result.title || 'Document Section')}</h4>
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                    ${Math.round((result.relevance_score || result.relevance || 0) * 100)}% match
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">${Utils.escapeHtml(result.text || result.content)}</p>
+                            <div class="text-xs text-gray-500">
+                                Source: ${Utils.escapeHtml(result.metadata?.document_name || result.source || 'Unknown')}
+                            </div>
+                            <div class="mt-2">
+                                <button class="text-xs text-blue-600 hover:text-blue-800 mr-3 view-result" data-id="${result.id}">
+                                    <i class="bi bi-eye mr-1"></i>View
+                                </button>
+                                <button class="text-xs text-blue-600 hover:text-blue-800 ask-about-result" data-id="${result.id}">
+                                    <i class="bi bi-question-circle mr-1"></i>Ask about this
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    fragment.appendChild(resultItem);
+                });
+                
+                DOM.ragSearchResults.innerHTML = '';
+                DOM.ragSearchResults.appendChild(fragment);
+            },
+            
+            displayTableSearchResults(data) {
+                if (!data.tables || data.tables.length === 0) {
+                    DOM.ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No tables found</p>';
+                    return;
+                }
+                
+                const fragment = document.createDocumentFragment();
+                
+                const header = document.createElement('div');
+                header.className = 'mb-4';
+                header.innerHTML = `
+                    <h3 class="text-lg font-semibold mb-2">Table Search Results</h3>
+                    <p class="text-sm text-gray-600">Found ${data.table_count} tables matching "${data.query}"</p>
+                `;
+                fragment.appendChild(header);
+                
+                data.tables.forEach((table, index) => {
+                    const tableResult = document.createElement('div');
+                    tableResult.className = 'bg-white border border-gray-200 rounded-lg p-4 mb-4';
+                    
+                    let tableContent = '';
+                    
+                    if (table.markdown) {
+                        tableContent = `
+                            <div class="overflow-x-auto mt-3">
+                                <div class="markdown-table">${DocumentManager.parseMarkdown(table.markdown)}</div>
+                            </div>
+                        `;
+                    } else if (table.source === 'docling' && table.content && Array.isArray(table.content)) {
+                        tableContent = `
+                            <div class="overflow-x-auto mt-3">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            ${table.content[0].map(header => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${Utils.escapeHtml(header)}</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        ${table.content.slice(1).map(row => `
+                                            <tr>
+                                                ${row.map(cell => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${Utils.escapeHtml(cell)}</td>`).join('')}
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    } else if (table.cells && Array.isArray(table.cells)) {
+                        const maxRow = Math.max(...table.cells.map(c => c.row)) + 1;
+                        const maxCol = Math.max(...table.cells.map(c => c.col)) + 1;
+                        
+                        const grid = Array(maxRow).fill(null).map(() => Array(maxCol).fill(''));
+                        
+                        table.cells.forEach(cell => {
+                            grid[cell.row][cell.col] = cell.text;
+                        });
+                        
+                        tableContent = `
+                            <div class="overflow-x-auto mt-3">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            ${grid[0].map((header, i) => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${Utils.escapeHtml(header || `Column ${i+1}`)}</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        ${grid.slice(1).map(row => `
+                                            <tr>
+                                                ${row.map(cell => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${Utils.escapeHtml(cell)}</td>`).join('')}
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    } else {
+                        tableContent = `<div class="mt-3 p-3 bg-gray-50 rounded text-sm">${Utils.escapeHtml(table.content || 'Table content not available')}</div>`;
+                    }
+                    
+                    let mergedCellsInfo = '';
+                    if (table.has_merged_cells) {
+                        mergedCellsInfo = '<span class="ml-2 text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">Has Merged Cells</span>';
+                    }
+                    
+                    tableResult.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-medium text-gray-900">Table ${index + 1}</h4>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
+                                    ${Math.round((table.relevance_score || 0) * 100)}% match
+                                </span>
+                                <span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                    Page ${table.page || 'N/A'}
+                                </span>
+                                ${mergedCellsInfo}
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-600 mb-2">
+                            Source: ${Utils.escapeHtml(table.file_name || 'Unknown Document')}
+                        </div>
+                        ${tableContent}
+                        <div class="mt-3 flex justify-end">
+                            <button class="text-xs text-blue-600 hover:text-blue-800 view-table-result" data-table-id="${table.table_id}">
+                                <i class="bi bi-eye mr-1"></i>View in Document
+                            </button>
+                        </div>
+                    `;
+                    
+                    fragment.appendChild(tableResult);
+                });
+                
+                DOM.ragSearchResults.innerHTML = '';
+                DOM.ragSearchResults.appendChild(fragment);
+            },
+            
+            setSearchType(type) {
+                // Reset all search type buttons
+                document.querySelectorAll('.search-type-btn').forEach(btn => {
+                    btn.classList.remove('active', 'bg-indigo-500', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                
+                // Hide all search inputs
+                document.getElementById('general-search-input').classList.add('hidden');
+                document.getElementById('entity-search-input').classList.add('hidden');
+                document.getElementById('structured-search-input').classList.add('hidden');
+                document.getElementById('table-search-input').classList.add('hidden');
+                
+                // Activate selected type
+                const activeBtn = document.getElementById(`search-type-${type}`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active', 'bg-indigo-500', 'text-white');
+                    activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                    
+                    // Show corresponding input
+                    const inputElement = document.getElementById(`${type}-search-input`);
+                    if (inputElement) {
+                        inputElement.classList.remove('hidden');
+                        
+                        // Focus the input
+                        const fieldElement = document.getElementById(`${type}-search-input-field`);
+                        if (fieldElement) {
+                            fieldElement.focus();
+                        }
+                    }
+                }
+            }
+        };
+
+        // ============================================
+        // 12. DOCUMENT STRUCTURE VIEWER (FIXED STATE CONSISTENCY)
+        // ============================================
+        class DocumentStructureViewer {
+            constructor() {
+                this.currentDocument = null;
+                this.structureData = null;
+                this.outlineData = null;
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.loadDocumentList();
+            }
+            
+            setupEventListeners() {
+                // Structure viewer toggle
+                document.getElementById('toggle-structure-viewer').addEventListener('click', () => {
+                    this.showStructureViewer();
+                });
+                
+                document.getElementById('close-structure-viewer').addEventListener('click', () => {
+                    this.hideStructureViewer();
+                });
+                
+                // Document selector
+                document.getElementById('structure-doc-selector').addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.loadDocumentStructure(e.target.value);
+                        this.loadDocumentOutline(e.target.value);
+                    } else {
+                        this.showEmptyState();
+                    }
+                });
+                
+                // Tab switching
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        this.switchTab(e.target.dataset.tab);
+                    });
+                });
+            }
+            
+            showStructureViewer() {
+                document.getElementById('document-structure-viewer').classList.remove('translate-x-full');
+                this.loadDocumentList();
+            }
+            
+            hideStructureViewer() {
+                document.getElementById('document-structure-viewer').classList.add('translate-x-full');
+            }
+            
+            async loadDocumentList() {
+                try {
+                    const response = await fetch('/list-documents/');
+                    const documents = await response.json();
+                    
+                    const selector = document.getElementById('structure-doc-selector');
+                    selector.innerHTML = '<option value="">Select a document...</option>';
+                    
+                    documents.forEach(doc => {
+                        const option = document.createElement('option');
+                        option.value = doc.name;
+                        option.textContent = doc.name;
+                        selector.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading document list:', error);
+                    NotificationManager.show('Failed to load document list', 'error');
+                }
+            }
+            
+            async loadDocumentOutline(filename) {
+                try {
+                    const response = await fetch(`/document-outline/${encodeURIComponent(filename)}`);
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        this.outlineData = data.outline;
+                        this.renderOutline();
+                    } else {
+                        throw new Error(data.error || 'Failed to load outline');
+                    }
+                } catch (error) {
+                    console.error('Error loading document outline:', error);
+                    NotificationManager.show('Failed to load document outline', 'error');
+                }
+            }
+            
+            renderOutline() {
+                const outline = this.outlineData || [];
+                const content = document.getElementById('outline-content');
+                
+                if (outline.length === 0) {
+                    content.innerHTML = '<p class="text-gray-500 text-center py-4">No outline available</p>';
+                    return;
+                }
+                
+                const fragment = document.createDocumentFragment();
+                
+                outline.forEach(item => {
+                    const indentClass = `ml-${Math.min(item.level * 4, 16)}`;
+                    const outlineItem = document.createElement('div');
+                    outlineItem.className = `outline-item flex items-center py-1 hover:bg-gray-100 rounded cursor-pointer ${indentClass}`;
+                    outlineItem.dataset.page = item.page;
+                    outlineItem.dataset.level = item.level;
+                    
+                    outlineItem.innerHTML = `
+                        <i class="bi bi-${item.level === 1 ? 'chevron-down' : 'chevron-right'} text-gray-400 mr-2"></i>
+                        <span class="text-sm ${item.level === 1 ? 'font-semibold' : ''}">${Utils.escapeHtml(item.text)}</span>
+                        <span class="ml-auto text-xs text-gray-500">Page ${item.page}</span>
+                    `;
+                    
+                    outlineItem.addEventListener('click', () => {
+                        const page = item.page;
+                        NotificationManager.show(`Navigating to page ${page}`, 'info');
+                    });
+                    
+                    fragment.appendChild(outlineItem);
+                });
+                
+                content.innerHTML = '';
+                content.appendChild(fragment);
+            }
+            
+            async loadDocumentStructure(filename) {
+                this.showLoading();
+                
+                try {
+                    const response = await fetch(`/document-structure/${encodeURIComponent(filename)}`);
+                    const structureData = await response.json();
+                    
+                    if (response.ok) {
+                        // SINGLE SOURCE OF TRUTH: Update both primary and derived states atomically
+                        this.updateStructureData(structureData);
+                        this.currentDocument = filename;
+                        this.renderStructure();
+                    } else {
+                        throw new Error(structureData.error || 'Failed to load structure');
+                    }
+                } catch (error) {
+                    console.error('Error loading document structure:', error);
+                    this.showError('Failed to load document structure');
+                    NotificationManager.show('Failed to load document structure', 'error');
+                }
+            }
+            
+            // FIXED: Atomic state update to maintain consistency
+            updateStructureData(newData) {
+                this.structureData = newData;
+                
+                // Ensure derived state (summary) is always synchronized with primary state
+                if (this.structureData.summary) {
+                    this.structureData.summary.validation_status = this.structureData.validation_status;
+                } else {
+                    this.structureData.summary = {
+                        validation_status: this.structureData.validation_status
+                    };
+                }
+            }
+            
+            renderStructure() {
+                this.hideLoading();
+                document.getElementById('structure-content').classList.remove('hidden');
+                document.getElementById('structure-empty').classList.add('hidden');
+                
+                if (this.structureData.regeneration_suggested) {
+                    this.showRegenerationPrompt(this.structureData.regeneration_reason);
+                    return;
+                }
+                
+                this.renderValidationStatus();
+                this.renderSummary();
+                this.renderHierarchy();
+                this.renderTables();
+                this.renderEntities();
+                this.renderSections();
+                
+                this.switchTab('summary');
+            }
+            
+            renderValidationStatus() {
+                // FIXED: Use single source of truth - primary validation_status
+                const validationStatus = this.structureData.validation_status;
+                const validationWarnings = this.structureData.validation_warnings || [];
+                
+                let validationElement = document.getElementById('validation-status');
+                if (!validationElement) {
+                    validationElement = document.createElement('div');
+                    validationElement.id = 'validation-status';
+                    validationElement.className = 'p-3 mb-4 rounded-lg';
+                    
+                    const docSelector = document.getElementById('structure-doc-selector');
+                    docSelector.parentNode.insertBefore(validationElement, docSelector.nextSibling);
+                }
+                
+                if (validationStatus === 'validated') {
+                    validationElement.className = 'p-3 mb-4 rounded-lg bg-green-50 border border-green-200';
+                    validationElement.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="bi bi-check-circle-fill text-green-500 mr-2"></i>
+                            <span class="text-green-800 font-medium">Document structure validated successfully</span>
+                        </div>
+                    `;
+                } else if (validationStatus === 'validated_with_warnings') {
+                    validationElement.className = 'p-3 mb-4 rounded-lg bg-yellow-50 border border-yellow-200';
+                    validationElement.innerHTML = `
+                        <div class="flex items-center mb-2">
+                            <i class="bi bi-exclamation-triangle-fill text-yellow-500 mr-2"></i>
+                            <span class="text-yellow-800 font-medium">Document structure validated with warnings</span>
+                        </div>
+                        <div class="text-sm text-yellow-700">
+                            <ul class="list-disc list-inside">
+                                ${validationWarnings.map(warning => `<li>${Utils.escapeHtml(warning)}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                } else if (validationStatus === 'error') {
+                    validationElement.className = 'p-3 mb-4 rounded-lg bg-red-50 border border-red-200';
+                    validationElement.innerHTML = `
+                        <div class="flex items-center mb-2">
+                            <i class="bi bi-x-circle-fill text-red-500 mr-2"></i>
+                            <span class="text-red-800 font-medium">Document structure validation failed</span>
+                        </div>
+                        <div class="text-sm text-red-700">
+                            <ul class="list-disc list-inside">
+                                ${validationWarnings.map(warning => `<li>${Utils.escapeHtml(warning)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <button id="regenerate-structure" class="mt-2 px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors text-sm">
+                            <i class="bi bi-arrow-clockwise mr-1"></i>Regenerate Structure
+                        </button>
+                    `;
+                    
+                    document.getElementById('regenerate-structure').addEventListener('click', () => {
+                        this.regenerateStructure();
+                    });
+                }
+            }
+            
+            showRegenerationPrompt(reason) {
+                const content = document.getElementById('structure-content');
+                content.innerHTML = `
+                    <div class="p-8 text-center">
+                        <i class="bi bi-exclamation-triangle text-yellow-500 text-5xl mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">Structure Incomplete</h3>
+                        <p class="text-gray-500 mb-4">${reason}</p>
+                        <button id="regenerate-structure-prompt" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                            <i class="bi bi-arrow-clockwise mr-2"></i>Regenerate Structure
+                        </button>
+                    </div>
+                `;
+                
+                document.getElementById('regenerate-structure-prompt').addEventListener('click', () => {
+                    this.regenerateStructure();
+                });
+            }
+            
+            async regenerateStructure() {
+                if (!this.currentDocument) return;
+                
+                this.showLoading();
+                
+                try {
+                    const response = await fetch(`/document-structure/${encodeURIComponent(this.currentDocument)}?regenerate=true`);
+                    const structureData = await response.json();
+                    
+                    if (response.ok) {
+                        // FIXED: Atomic update of both states
+                        this.updateStructureData(structureData);
+                        this.renderStructure();
+                        NotificationManager.show('Document structure regenerated successfully', 'success');
+                    } else {
+                        throw new Error(structureData.error || 'Failed to regenerate structure');
+                    }
+                } catch (error) {
+                    console.error('Error regenerating document structure:', error);
+                    this.showError('Failed to regenerate document structure');
+                    NotificationManager.show('Failed to regenerate document structure', 'error');
+                }
+            }
+            
+            renderSummary() {
+                // FIXED: Always use synchronized summary data
+                const summary = this.structureData.summary || {};
+                const content = document.getElementById('summary-content');
+                
+                const totalPages = summary.num_pages || summary.total_pages || 0;
+                const totalWords = summary.num_texts || summary.total_words || 0;
+                const totalTables = summary.num_tables || summary.tables_count || 0;
+                const totalHeadings = summary.headings_count || 0;
+                
+                // FIXED: Use synchronized validation status
+                const validationStatus = summary.validation_status || 'Unknown';
+                
+                content.innerHTML = `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="structure-stat-card text-center">
+                            <div class="text-2xl font-bold text-indigo-600">${totalPages}</div>
+                            <div class="text-sm text-gray-500">Pages</div>
+                        </div>
+                        <div class="structure-stat-card text-center">
+                            <div class="text-2xl font-bold text-green-600">${totalWords}</div>
+                            <div class="text-sm text-gray-500">Text Elements</div>
+                        </div>
+                        <div class="structure-stat-card text-center">
+                            <div class="text-2xl font-bold text-blue-600">${totalHeadings}</div>
+                            <div class="text-sm text-gray-500">Headings</div>
+                        </div>
+                        <div class="structure-stat-card text-center">
+                            <div class="text-2xl font-bold text-purple-600">${totalTables}</div>
+                            <div class="text-sm text-gray-500">Tables</div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="structure-stat-card">
+                            <h3 class="font-semibold text-gray-800 mb-3">Document Information</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Document Type:</span>
+                                    <span class="font-medium">${summary.document_type || 'PDF'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Images:</span>
+                                    <span class="font-medium">${summary.num_pictures || 0}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Validation Status:</span>
+                                    <span class="font-medium">${validationStatus}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="structure-stat-card">
+                            <h3 class="font-semibold text-gray-800 mb-3">Content Analysis</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Text Types:</span>
+                                    <span class="font-medium">${Object.keys(summary.text_types || {}).length}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Structure Completeness:</span>
+                                    <span class="font-medium">${this.structureData.completeness_check?.is_complete ? 'Complete' : 'Incomplete'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            renderHierarchy() {
+                const hierarchy = this.structureData.hierarchy || [];
+                const content = document.getElementById('hierarchy-content');
+                
+                if (hierarchy.length === 0) {
+                    content.innerHTML = '<p class="text-gray-500 text-center py-4">No hierarchical structure detected</p>';
+                    return;
+                }
+                
+                const fragment = document.createDocumentFragment();
+                
+                hierarchy.forEach(item => {
+                    const warningIcon = item.validation_warnings && item.validation_warnings.length > 0 ? 
+                        '<i class="bi bi-exclamation-triangle-fill text-yellow-500 ml-2" title="' + item.validation_warnings.join(', ') + '"></i>' : '';
+                    
+                    const hierarchyItem = document.createElement('div');
+                    hierarchyItem.className = `structure-hierarchy-item level-${item.level}`;
+                    
+                    hierarchyItem.innerHTML = `
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded">Level ${item.level}</span>
+                                    <span class="text-xs text-gray-500">${item.type || 'heading'}</span>
+                                    ${warningIcon}
+                                </div>
+                                <div class="mt-1 font-medium">${Utils.escapeHtml(item.text)}</div>
+                            </div>
+                            <div class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                Page ${item.page}
+                            </div>
+                        </div>
+                    `;
+                    
+                    fragment.appendChild(hierarchyItem);
+                });
+                
+                content.innerHTML = '';
+                content.appendChild(fragment);
+            }
+            
+            renderTables() {
+                const tables = this.structureData.tables || [];
+                const content = document.getElementById('tables-content');
+                
+                if (tables.length === 0) {
+                    content.innerHTML = '<p class="text-gray-500 text-center py-4">No tables detected</p>';
+                    return;
+                }
+                
+                const fragment = document.createDocumentFragment();
+                
+                tables.forEach((table, index) => {
+                    let validationInfo = '';
+                    if (table.validation_status === 'validated_with_warnings') {
+                        validationInfo = `
+                            <span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded" title="${table.validation_warnings.join(', ')}">
+                                <i class="bi bi-exclamation-triangle mr-1"></i>Warnings
+                            </span>
+                        `;
+                    } else if (table.validation_status === 'error') {
+                        validationInfo = `
+                            <span class="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded" title="${table.validation_warnings.join(', ')}">
+                                <i class="bi bi-x-circle mr-1"></i>Error
+                            </span>
+                        `;
+                    }
+                    
+                    let contextInfo = '';
+                    if (table.context_heading) {
+                        contextInfo = `
+                            <div class="mt-2 p-2 bg-blue-50 rounded text-sm">
+                                <div class="font-medium text-blue-800">Context:</div>
+                                <div class="text-blue-700">${Utils.escapeHtml(table.context_heading)}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    const tableContainer = document.createElement('div');
+                    tableContainer.className = 'structure-table-container';
+                    
+                    if (table.format === 'markdown') {
+                        tableContainer.innerHTML = `
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-semibold text-gray-800">Table ${index + 1}</h3>
+                                <div class="flex items-center space-x-2 text-sm text-gray-500">
+                                    <span>${table.row_count} rows</span>
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded">Markdown</span>
+                                    <span class="px-2 py-1 bg-gray-100 rounded">Lines ${table.start_line}-${table.end_line}</span>
+                                    ${validationInfo}
+                                </div>
+                            </div>
+                            
+                            ${contextInfo}
+                            
+                            <div class="bg-gray-50 p-4 rounded border">
+                                <pre class="text-sm whitespace-pre-wrap">${Utils.escapeHtml(table.markdown)}</pre>
+                            </div>
+                        `;
+                    } else if (table.source === 'docling' && table.content && Array.isArray(table.content)) {
+                        tableContainer.innerHTML = `
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-semibold text-gray-800">Table ${index + 1}</h3>
+                                <div class="flex items-center space-x-2 text-sm text-gray-500">
+                                    <span>${table.rows} rows × ${table.columns} columns</span>
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">Docling</span>
+                                    <span class="px-2 py-1 bg-gray-100 rounded">Page ${table.page}</span>
+                                    ${validationInfo}
+                                </div>
+                            </div>
+                            
+                            ${contextInfo}
+                            
+                            <div class="overflow-x-auto">
+                                <table class="structure-table">
+                                    <thead>
+                                        <tr>
+                                            ${table.content[0].map(header => `<th>${Utils.escapeHtml(header)}</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${table.content.slice(1).map(row => `
+                                            <tr>
+                                                ${row.map(cell => `<td>${Utils.escapeHtml(cell)}</td>`).join('')}
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    } else {
+                        tableContainer.innerHTML = `
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-semibold text-gray-800">Table ${index + 1}</h3>
+                                <div class="flex items-center space-x-2 text-sm text-gray-500">
+                                    <span>${table.row_count || table.shape?.[0] || 0} rows × ${table.column_count || table.shape?.[1] || 0} columns</span>
+                                    <span class="px-2 py-1 bg-gray-100 rounded">Lines ${table.start_line}-${table.end_line}</span>
+                                    ${validationInfo}
+                                </div>
+                            </div>
+                            
+                            ${contextInfo}
+                            
+                            <div class="overflow-x-auto">
+                                <table class="structure-table">
+                                    <thead>
+                                        <tr>
+                                            ${(table.columns || []).map(col => `
+                                                <th>${Utils.escapeHtml(col)}</th>
+                                            `).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${(table.rows || []).map(row => `
+                                            <tr>
+                                                ${row.map(cell => `
+                                                    <td>${Utils.escapeHtml(cell)}</td>
+                                                `).join('')}
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+                    
+                    fragment.appendChild(tableContainer);
+                });
+                
+                content.innerHTML = '';
+                content.appendChild(fragment);
+            }
+            
+            renderEntities() {
+                const entities = this.structureData.entities || {};
+                const content = document.getElementById('entities-content');
+                
+                const entityTypes = {
+                    organizations: { icon: 'bi-building', color: 'blue' },
+                    people: { icon: 'bi-person', color: 'green' },
+                    dates: { icon: 'bi-calendar', color: 'purple' },
+                    emails: { icon: 'bi-envelope', color: 'indigo' },
+                    phones: { icon: 'bi-telephone', color: 'pink' },
+                    references: { icon: 'bi-card-text', color: 'yellow' }
+                };
+                
+                const fragment = document.createDocumentFragment();
+                
+                Object.entries(entityTypes).forEach(([type, config]) => {
+                    const items = entities[type] || [];
+                    if (items.length === 0) return;
+                    
+                    const entityCard = document.createElement('div');
+                    entityCard.className = 'structure-stat-card';
+                    
+                    entityCard.innerHTML = `
                         <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
                             <i class="bi ${config.icon} text-${config.color}-500 mr-2"></i>
                             ${type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
@@ -1788,189 +2410,285 @@
                         <div class="flex flex-wrap gap-2">
                             ${items.map(item => `
                                 <span class="entity-tag bg-${config.color}-100 text-${config.color}-800">
-                                    ${this.escapeHtml(item)}
+                                    ${Utils.escapeHtml(item)}
                                 </span>
                             `).join('')}
                         </div>
-                    </div>
-                `;
-            }).join('');
-            
-            if (content.innerHTML === '') {
-                content.innerHTML = '<p class="text-gray-500 text-center py-4">No entities detected</p>';
-            }
-        }
-        
-        renderSections() {
-            const sections = this.structureData.sections || [];
-            const content = document.getElementById('sections-content');
-            
-            if (sections.length === 0) {
-                content.innerHTML = '<p class="text-gray-500 text-center py-4">No sections detected</p>';
-                return;
+                    `;
+                    
+                    fragment.appendChild(entityCard);
+                });
+                
+                if (fragment.children.length === 0) {
+                    content.innerHTML = '<p class="text-gray-500 text-center py-4">No entities detected</p>';
+                } else {
+                    content.innerHTML = '';
+                    content.appendChild(fragment);
+                }
             }
             
-            content.innerHTML = sections.map(section => `
-                <div class="structure-section-card">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="font-semibold text-gray-800">${this.escapeHtml(section.title)}</h3>
-                        <div class="flex items-center space-x-2 text-sm text-gray-500">
-                            <span class="px-2 py-1 bg-gray-100 rounded">Level ${section.level}</span>
-                            <span>${section.word_count} words</span>
+            renderSections() {
+                const sections = this.structureData.sections || [];
+                const content = document.getElementById('sections-content');
+                
+                if (sections.length === 0) {
+                    content.innerHTML = '<p class="text-gray-500 text-center py-4">No sections detected</p>';
+                    return;
+                }
+                
+                const fragment = document.createDocumentFragment();
+                
+                sections.forEach(section => {
+                    const heading = section.heading || {};
+                    const paragraphs = section.paragraphs || [];
+                    
+                    let wordCount = 0;
+                    paragraphs.forEach(p => {
+                        wordCount += p.text ? p.text.split(/\s+/).length : 0;
+                    });
+                    
+                    let contentPreview = '';
+                    if (paragraphs.length > 0) {
+                        contentPreview = paragraphs[0].text || '';
+                        if (contentPreview.length > 100) {
+                            contentPreview = contentPreview.substring(0, 100) + '...';
+                        }
+                    }
+                    
+                    let validationInfo = '';
+                    if (section.validation_status === 'validated_with_warnings') {
+                        validationInfo = `
+                            <span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded" title="${section.validation_warnings.join(', ')}">
+                                <i class="bi bi-exclamation-triangle mr-1"></i>Warnings
+                            </span>
+                        `;
+                    } else if (section.validation_status === 'error') {
+                        validationInfo = `
+                            <span class="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded" title="${section.validation_warnings.join(', ')}">
+                                <i class="bi bi-x-circle mr-1"></i>Error
+                            </span>
+                        `;
+                    } else if (section.validation_status === 'generated') {
+                        validationInfo = `
+                            <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded" title="Generated section">
+                                <i class="bi bi-lightning mr-1"></i>Generated
+                            </span>
+                        `;
+                    }
+                    
+                    const sectionCard = document.createElement('div');
+                    sectionCard.className = 'structure-section-card';
+                    
+                    sectionCard.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-semibold text-gray-800">${Utils.escapeHtml(heading.text || 'Untitled Section')}</h3>
+                            <div class="flex items-center space-x-2 text-sm text-gray-500">
+                                <span class="px-2 py-1 bg-gray-100 rounded">Level ${section.level || heading.level || 1}</span>
+                                <span>${wordCount} words</span>
+                                <span>${paragraphs.length} paragraphs</span>
+                                ${validationInfo}
+                            </div>
                         </div>
-                    </div>
-                    <p class="text-sm text-gray-600">${this.escapeHtml(section.content_preview || '')}</p>
-                    <div class="mt-2 text-xs text-gray-500">
-                        Line ${section.start_line} • ${section.type}
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-button').forEach(button => {
-                if (button.dataset.tab === tabName) {
-                    button.classList.add('active', 'text-indigo-600', 'border-indigo-600');
-                    button.classList.remove('text-gray-500', 'border-transparent');
-                } else {
-                    button.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
-                    button.classList.add('text-gray-500', 'border-transparent');
-                }
-            });
+                        <p class="text-sm text-gray-600">${Utils.escapeHtml(contentPreview)}</p>
+                        <div class="mt-2 text-xs text-gray-500">
+                            Page ${heading.page || 'N/A'} • ${heading.type || 'section'}
+                        </div>
+                    `;
+                    
+                    fragment.appendChild(sectionCard);
+                });
+                
+                content.innerHTML = '';
+                content.appendChild(fragment);
+            }
             
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                if (content.id === `tab-${tabName}`) {
-                    content.classList.remove('hidden');
-                    content.classList.add('active');
-                } else {
-                    content.classList.add('hidden');
-                    content.classList.remove('active');
-                }
-            });
+            switchTab(tabName) {
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    if (button.dataset.tab === tabName) {
+                        button.classList.add('active', 'text-indigo-600', 'border-indigo-600');
+                        button.classList.remove('text-gray-500', 'border-transparent');
+                    } else {
+                        button.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
+                        button.classList.add('text-gray-500', 'border-transparent');
+                    }
+                });
+                
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    if (content.id === `tab-${tabName}`) {
+                        content.classList.remove('hidden');
+                        content.classList.add('active');
+                    } else {
+                        content.classList.add('hidden');
+                        content.classList.remove('active');
+                    }
+                });
+            }
+            
+            showLoading() {
+                document.getElementById('structure-loading').classList.remove('hidden');
+                document.getElementById('structure-content').classList.add('hidden');
+                document.getElementById('structure-empty').classList.add('hidden');
+            }
+            
+            hideLoading() {
+                document.getElementById('structure-loading').classList.add('hidden');
+            }
+            
+            showEmptyState() {
+                document.getElementById('structure-content').classList.add('hidden');
+                document.getElementById('structure-loading').classList.add('hidden');
+                document.getElementById('structure-empty').classList.remove('hidden');
+            }
+            
+            showError(message) {
+                this.showEmptyState();
+                document.getElementById('structure-empty').innerHTML = `
+                    <i class="bi bi-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+                    <p class="text-lg text-red-500">${message}</p>
+                `;
+            }
         }
-        
-        showLoading() {
-            document.getElementById('structure-loading').classList.remove('hidden');
-            document.getElementById('structure-content').classList.add('hidden');
-            document.getElementById('structure-empty').classList.add('hidden');
-        }
-        
-        hideLoading() {
-            document.getElementById('structure-loading').classList.add('hidden');
-        }
-        
-        showEmptyState() {
-            document.getElementById('structure-content').classList.add('hidden');
-            document.getElementById('structure-loading').classList.add('hidden');
-            document.getElementById('structure-empty').classList.remove('hidden');
-        }
-        
-        showError(message) {
-            this.showEmptyState();
-            document.getElementById('structure-empty').innerHTML = `
-                <i class="bi bi-exclamation-triangle text-red-500 text-5xl mb-4"></i>
-                <p class="text-lg text-red-500">${message}</p>
-            `;
-        }
-        
-        escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-    }
 
-    // Initialize when DOM is loaded
-    document.addEventListener('DOMContentLoaded', () => {
-        window.documentStructureViewer = new DocumentStructureViewer();
-    });
+        // ============================================
+        // 13. INITIALIZATION
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            DOM.init();
+            EventManager.init();
+            WebSocketManager.connect();
+            UIManager.setActiveModel(AppState.currentModel);
+            
+            // Load initial data
+            fetch('/collection-info/')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.error) {
+                        document.getElementById('document-count').textContent = 
+                            `${data.total_documents || 0} document${data.total_documents !== 1 ? 's' : ''}`;
+                    }
+                })
+                .catch(console.error);
+                
+            // Initialize Document Structure Viewer
+            window.documentStructureViewer = new DocumentStructureViewer();
+
+            // Check if there's a document being processed on page load
+            const documentTitle = DOM.documentTitle.textContent;
+            if (documentTitle && documentTitle.includes('Processing')) {
+                // If the page loads with a processing state, clear it after a delay
+                setTimeout(() => {
+                    DOM.loadingOverlay.classList.add('hidden');
+                    DOM.documentContent.innerHTML = `
+                        <div class="text-center py-16">
+                            <div class="text-gray-400 text-6xl mb-4">
+                                <i class="bi bi-file-text"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-700">No Document Loaded</h3>
+                            <p class="text-gray-500 mt-2">Upload a document to get started.</p>
+                            <button class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors" onclick="document.getElementById('file-upload').click()">
+                                Upload Document
+                            </button>
+                        </div>
+                    `;
+                    DOM.documentTitle.textContent = 'Document Viewer';
+                }, 5000);
+            }
+        });
     </script>
 
     <!-- Document Structure Viewer -->
-<div id="document-structure-viewer" class="fixed top-0 right-0 w-full md:w-3/4 lg:w-2/3 xl:w-3/5 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
-    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-        <h2 class="text-lg font-semibold text-gray-800 flex items-center">
-            <i class="bi bi-diagram-3 text-indigo-600 mr-2"></i>
-            Document Structure Analysis
-        </h2>
-        <button id="close-structure-viewer" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-            <i class="bi bi-x-lg text-xl"></i>
-        </button>
-    </div>
-    
-    <div class="flex-1 overflow-hidden flex flex-col">
-        <!-- Document Selector -->
-        <div class="p-4 border-b border-gray-200 bg-gray-50">
-            <select id="structure-doc-selector" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                <option value="">Select a document...</option>
-            </select>
+    <div id="document-structure-viewer" class="fixed top-0 right-0 w-full md:w-3/4 lg:w-2/3 xl:w-3/5 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+        <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+            <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                <i class="bi bi-diagram-3 text-indigo-600 mr-2"></i>
+                Document Structure Analysis
+            </h2>
+            <button id="close-structure-viewer" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                <i class="bi bi-x-lg text-xl"></i>
+            </button>
         </div>
         
-        <!-- Loading Indicator -->
-        <div id="structure-loading" class="hidden p-8 text-center flex-1 flex flex-col items-center justify-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4"></div>
-            <p class="text-gray-500">Analyzing document structure...</p>
-        </div>
-        
-        <!-- Content Tabs -->
-        <div id="structure-content" class="hidden flex-1 flex flex-col">
-            <div class="border-b border-gray-200 bg-white">
-                <nav class="flex -mb-px">
-                    <button class="tab-button active px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600" data-tab="summary">
-                        <i class="bi bi-card-text mr-2"></i>Summary
-                    </button>
-                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="hierarchy">
-                        <i class="bi bi-diagram-3 mr-2"></i>Hierarchy
-                    </button>
-                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="tables">
-                        <i class="bi bi-table mr-2"></i>Tables
-                    </button>
-                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="entities">
-                        <i class="bi bi-tags mr-2"></i>Entities
-                    </button>
-                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="sections">
-                        <i class="bi bi-journal-text mr-2"></i>Sections
-                    </button>
-                </nav>
+        <div class="flex-1 overflow-hidden flex flex-col">
+            <!-- Document Selector -->
+            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                <select id="structure-doc-selector" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    <option value="">Select a document...</option>
+                </select>
             </div>
             
-            <!-- Tab Content -->
-            <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
-                <!-- Summary Tab -->
-                <div id="tab-summary" class="tab-content active">
-                    <div id="summary-content"></div>
+            <!-- Validation Status (dynamically inserted here) -->
+            
+            <!-- Loading Indicator -->
+            <div id="structure-loading" class="hidden p-8 text-center flex-1 flex flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4"></div>
+                <p class="text-gray-500">Analyzing document structure...</p>
+            </div>
+            
+            <!-- Content Tabs -->
+            <div id="structure-content" class="hidden flex-1 flex flex-col">
+                <div class="border-b border-gray-200 bg-white">
+                    <nav class="flex -mb-px">
+                        <button class="tab-button active px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600" data-tab="summary">
+                            <i class="bi bi-card-text mr-2"></i>Summary
+                        </button>
+                        <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="hierarchy">
+                            <i class="bi bi-diagram-3 mr-2"></i>Hierarchy
+                        </button>
+                        <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="tables">
+                            <i class="bi bi-table mr-2"></i>Tables
+                        </button>
+                        <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="entities">
+                            <i class="bi bi-tags mr-2"></i>Entities
+                        </button>
+                        <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="sections">
+                            <i class="bi bi-journal-text mr-2"></i>Sections
+                        </button>
+                        <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="outline">
+                            <i class="bi bi-list-ul mr-2"></i>Outline
+                        </button>
+                    </nav>
                 </div>
                 
-                <!-- Hierarchy Tab -->
-                <div id="tab-hierarchy" class="tab-content hidden">
-                    <div id="hierarchy-content" class="space-y-2"></div>
-                </div>
-                
-                <!-- Tables Tab -->
-                <div id="tab-tables" class="tab-content hidden">
-                    <div id="tables-content" class="space-y-6"></div>
-                </div>
-                
-                <!-- Entities Tab -->
-                <div id="tab-entities" class="tab-content hidden">
-                    <div id="entities-content" class="space-y-4"></div>
-                </div>
-                
-                <!-- Sections Tab -->
-                <div id="tab-sections" class="tab-content hidden">
-                    <div id="sections-content" class="space-y-4"></div>
+                <!-- Tab Content -->
+                <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
+                    <!-- Summary Tab -->
+                    <div id="tab-summary" class="tab-content active">
+                        <div id="summary-content"></div>
+                    </div>
+                    
+                    <!-- Hierarchy Tab -->
+                    <div id="tab-hierarchy" class="tab-content hidden">
+                        <div id="hierarchy-content" class="space-y-2"></div>
+                    </div>
+                    
+                    <!-- Tables Tab -->
+                    <div id="tab-tables" class="tab-content hidden">
+                        <div id="tables-content" class="space-y-6"></div>
+                    </div>
+                    
+                    <!-- Entities Tab -->
+                    <div id="tab-entities" class="tab-content hidden">
+                        <div id="entities-content" class="space-y-4"></div>
+                    </div>
+                    
+                    <!-- Sections Tab -->
+                    <div id="tab-sections" class="tab-content hidden">
+                        <div id="sections-content" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Outline Tab -->
+                    <div id="tab-outline" class="tab-content hidden">
+                        <div id="outline-content" class="space-y-2"></div>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Empty State -->
-        <div id="structure-empty" class="p-8 text-center text-gray-500 flex-1 flex flex-col items-center justify-center">
-            <i class="bi bi-file-earmark-text text-5xl mb-4 text-gray-300"></i>
-            <p class="text-lg">Select a document to view its structure</p>
+            
+            <!-- Empty State -->
+            <div id="structure-empty" class="p-8 text-center text-gray-500 flex-1 flex flex-col items-center justify-center">
+                <i class="bi bi-file-earmark-text text-5xl mb-4 text-gray-300"></i>
+                <p class="text-lg">Select a document to view its structure</p>
+            </div>
         </div>
     </div>
-</div>
 </body>
 </html>

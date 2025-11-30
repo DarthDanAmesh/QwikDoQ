@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind AI | Intelligent Document Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --primary-light: #c7d2fe;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f1f5f9;
+            color: #334155;
+            overflow-x: hidden;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .sidebar-gradient {
+            background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            margin-bottom: 16px;
+            line-height: 1.5;
+            position: relative;
+        }
+        
+        .user-message {
+            background: var(--primary);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 6px;
+        }
+        
+        .bot-message {
+            background: white;
+            color: var(--dark);
+            margin-right: auto;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .structured-response {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 12px 0;
+            border-left: 4px solid var(--primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .search-type-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .search-type-btn.active {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+        
+        .highlight {
+            background-color: rgba(245, 158, 11, 0.2);
+            padding: 2px 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .highlight:hover {
+            background-color: rgba(245, 158, 11, 0.4);
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(90deg);
+            transform-origin: 50% 50%;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        
+        .pulse-ring {
+            animation: pulseRing 2s infinite;
+        }
+        
+        @keyframes pulseRing {
+            0% { transform: scale(0.8); opacity: 1; }
+            80%, 100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #9ca3af;
+            margin: 0 2px;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typingAnimation {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        .document-card {
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .document-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: var(--primary-light);
+        }
+        
+        .search-result-item {
+            transition: all 0.2s ease;
+        }
+        
+        .search-result-item:hover {
+            background-color: #f8fafc;
+            transform: translateX(5px);
+        }
+        
+        .entity-tag {
+            display: inline-flex;
+            align-items: center;
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+        
+        .relevance-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .gazette-notice {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .entity-result {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border-left: 4px solid #22c55e;
+        }
+
+    /* Document Structure Viewer Styles */
+    #document-structure-viewer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 800px;
+        height: 100vh;
+        background: white;
+        box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tab-button.active {
+        border-bottom-color: #4f46e5;
+        color: #4f46e5;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .entity-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-right: 6px;
+        margin-bottom: 6px;
+    }
+
+    .structure-stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .structure-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .structure-section-card {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #4f46e5;
+    }
+
+    .structure-table-container {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    .structure-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    .structure-table th {
+        background-color: #f8fafc;
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 600;
+    }
+
+    .structure-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .structure-table tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .structure-hierarchy-item {
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #4f46e5;
+    }
+
+    .structure-hierarchy-item.level-2 {
+        border-left-color: #10b981;
+        margin-left: 20px;
+    }
+
+    .structure-hierarchy-item.level-3 {
+        border-left-color: #f59e0b;
+        margin-left: 40px;
+    }
+
+    .structure-hierarchy-item.level-4 {
+        border-left-color: #ef4444;
+        margin-left: 60px;
+    }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <!-- Top Navigation -->
+        <header class="bg-white shadow-sm z-20">
+        <div class="px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <button id="sidebar-toggle" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    <i class="bi bi-list text-xl text-gray-700"></i>
+                </button>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center mr-2">
+                        <i class="bi bi-file-text text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-800">DocuMind AI</h1>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <!-- Structure Viewer Button -->
+                <button id="toggle-structure-viewer" class="w-10 h-10 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-all flex items-center justify-center">
+                    <i class="bi bi-diagram-3 text-lg"></i>
+                </button>
+                
+                <!-- Status Indicator -->
+                <div id="status-indicator" class="hidden">
+                    <div class="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 rounded-full">
+                        <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                        <span class="text-sm font-medium text-blue-700">Indexing...</span>
+                    </div>
+                </div>
+                
+                <!-- Model Selector -->
+                <div class="relative">
+                    <button id="model-selector-btn" class="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                        <i class="bi bi-cpu text-gray-600"></i>
+                        <span class="text-sm font-medium text-gray-700">Granite3.1</span>
+                        <i class="bi bi-chevron-down text-gray-500 text-xs"></i>
+                    </button>
+                    
+                    <div id="model-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30 hidden">
+                        <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between" data-model="granite3.1-moe:1b">
+                            <span>Granite3.1 MOE</span>
+                            <i class="bi bi-check text-blue-500 hidden model-check"></i>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between" data-model="llama2">
+                            <span>Llama 2</span>
+                            <i class="bi bi-check text-blue-500 hidden model-check"></i>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between" data-model="mistral">
+                            <span>Mistral</span>
+                            <i class="bi bi-check text-blue-500 hidden model-check"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Upload Button -->
+                <input type="file" id="file-upload" class="hidden" accept=".pdf,.doc,.docx,.txt">
+                <button id="upload-btn" class="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all shadow-sm">
+                    <i class="bi bi-cloud-upload"></i>
+                    <span>Upload Document</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Keep the original fixed position button as well if you want it to stay at bottom right -->
+    <button id="toggle-structure-viewer-fixed" class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all z-30 flex items-center justify-center">
+        <i class="bi bi-diagram-3 text-xl"></i>
+    </button>
+
+    <!-- Main Content Area -->
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-80 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 transform -translate-x-full md:translate-x-0 fixed md:static h-full z-10">
+            <div class="p-4 border-b border-gray-200">
+                <div class="relative">
+                    <input type="text" id="search-box" placeholder="Search documents..." 
+                        class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400">
+                    <i class="bi bi-search absolute left-3 top-3 text-gray-400"></i>
+                </div>
+                
+                <button id="rag-search-btn" class="w-full mt-3 flex items-center justify-center space-x-2 bg-indigo-50 text-indigo-600 px-4 py-2.5 rounded-lg hover:bg-indigo-100 transition-colors font-medium">
+                    <i class="bi bi-database"></i>
+                    <span>Advanced Document Search</span>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4">
+                <!-- Documents Section -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Recent Documents</h3>
+                    <div id="documents-list" class="space-y-3">
+                        <!-- Documents will be dynamically populated -->
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="bi bi-folder-x text-3xl mb-2"></i>
+                            <p class="text-sm">No documents yet</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conversation History -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Conversation History</h3>
+                        <button id="clear-history" class="text-xs text-gray-400 hover:text-gray-600">
+                            Clear All
+                        </button>
+                    </div>
+                    <div id="conversation-history" class="space-y-2">
+                        <!-- Conversation history will be dynamically populated -->
+                        <div class="text-center py-4 text-gray-400">
+                            <p class="text-sm">No conversations yet</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="search-results" class="hidden">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Search Results</h3>
+                    <div id="search-results-list" class="space-y-2">
+                        <!-- Search results will appear here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex items-center justify-between text-sm text-gray-500">
+                    <div class="flex items-center space-x-2">
+                        <div id="connection-status" class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span>Connected</span>
+                    </div>
+                    <span id="document-count">0 documents</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-gray-50">
+            <!-- Document Viewer / Chat Area -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Document Viewer -->
+                <div id="document-viewer" class="flex-1 flex flex-col bg-white rounded-lg m-4 card-shadow overflow-hidden">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                        <h2 id="document-title" class="text-lg font-semibold text-gray-800">Document Viewer</h2>
+                        <div class="flex space-x-2">
+                            <button id="toggle-highlight" class="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Toggle Highlighting">
+                                <i class="bi bi-highlighter"></i>
+                            </button>
+                            <button id="download-doc" class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Download Document">
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="document-content" class="flex-1 overflow-y-auto p-6">
+                        <div class="text-center py-16 text-gray-400">
+                            <i class="bi bi-file-earmark-text text-4xl mb-3"></i>
+                            <h3 class="text-xl font-medium text-gray-500">No Document Selected</h3>
+                            <p class="mt-2 max-w-md mx-auto">Upload a document or select from your recent documents to begin analysis.</p>
+                            <button id="upload-from-viewer" class="mt-4 inline-flex items-center space-x-2 bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors">
+                                <i class="bi bi-cloud-upload"></i>
+                                <span>Upload Document</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Panel -->
+                <div id="chat-panel" class="w-96 flex flex-col bg-white rounded-lg m-4 card-shadow overflow-hidden">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                            <i class="bi bi-robot text-indigo-500 mr-2"></i>
+                            AI Assistant
+                        </h2>
+                        <p class="text-sm text-gray-500 mt-1">Ask questions about your documents</p>
+                    </div>
+                    
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="bi bi-chat-left-text text-3xl mb-2"></i>
+                            <p class="text-sm">Start a conversation about your documents</p>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 border-t border-gray-200 bg-gray-50">
+                        <div class="flex space-x-2">
+                            <input type="text" id="message-input" placeholder="Type your message..." 
+                                class="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400">
+                            <button id="send-message" class="bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            <button class="suggestion-btn text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors">
+                                Summarize this document
+                            </button>
+                            <button class="suggestion-btn text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors">
+                                Find key entities
+                            </button>
+                            <button class="suggestion-btn text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors">
+                                Extract structured data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- RAG Search Modal -->
+    <div id="rag-search-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">Advanced Document Search</h3>
+                    <p class="text-sm text-gray-500 mt-1">Search across all your documents with hybrid retrieval</p>
+                </div>
+                <button id="close-rag-search" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                    <i class="bi bi-x-lg text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Search Type</label>
+                    <div class="flex space-x-2">
+                        <button id="search-type-general" class="search-type-btn active px-4 py-2 bg-indigo-500 text-white rounded-lg">General Search</button>
+                        <button id="search-type-entity" class="search-type-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">Entity Search</button>
+                        <button id="search-type-structured" class="search-type-btn px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">Structured Query</button>
+                    </div>
+                </div>
+                
+                <div id="general-search-input">
+                    <input type="text" id="rag-search-input" placeholder="Enter your search query..." 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 mb-4">
+                    <button id="perform-rag-search" class="w-full bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium">
+                        Search Documents
+                    </button>
+                </div>
+                
+                <div id="entity-search-input" class="hidden">
+                    <input type="text" id="entity-search-input-field" placeholder="Enter entity name (e.g., Nairobi City Water)..." 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 mb-4">
+                    <button id="perform-entity-search" class="w-full bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium">
+                        Search Entity
+                    </button>
+                </div>
+                
+                <div id="structured-search-input" class="hidden">
+                    <input type="text" id="structured-search-input-field" placeholder="Enter your query (e.g., Find GAZETTE NOTICE NO. 16787)..." 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 mb-4">
+                    <button id="perform-structured-search" class="w-full bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors font-medium">
+                        Structured Query
+                    </button>
+                </div>
+            </div>
+            
+            <div id="rag-search-results" class="p-6 border-t border-gray-200 max-h-[50vh] overflow-y-auto">
+                <div class="text-center py-8 text-gray-400">
+                    <i class="bi bi-search text-3xl mb-2"></i>
+                    <p class="text-sm">Enter a search query to see results</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-80 z-50 flex flex-col items-center justify-center hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-indigo-500 border-t-transparent mb-4"></div>
+        <p class="text-lg font-medium text-gray-700">Processing your document</p>
+        <p id="loading-message" class="text-sm text-gray-500 mt-2">Indexing and analyzing content...</p>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="fixed top-4 right-4 z-50 space-y-3"></div>
+
+    <script>
+        // Global variables
+        let ws;
+        let currentFile = null;
+        let currentModel = 'granite3.1-moe:1b';
+        let isHighlighting = false;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        
+        // DOM Elements
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const uploadBtn = document.getElementById('upload-btn');
+        const fileUpload = document.getElementById('file-upload');
+        const uploadFromViewer = document.getElementById('upload-from-viewer');
+        const messageInput = document.getElementById('message-input');
+        const sendMessageBtn = document.getElementById('send-message');
+        const chatMessages = document.getElementById('chat-messages');
+        const ragSearchModal = document.getElementById('rag-search-modal');
+        const ragSearchBtn = document.getElementById('rag-search-btn');
+        const closeRagSearch = document.getElementById('close-rag-search');
+        const ragSearchResults = document.getElementById('rag-search-results');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const notificationContainer = document.getElementById('notification-container');
+        const connectionStatus = document.getElementById('connection-status');
+        const statusIndicator = document.getElementById('status-indicator');
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeApp();
+            setupEventListeners();
+            connectWebSocket();
+        });
+        
+        function initializeApp() {
+            // Set active model
+            setActiveModel(currentModel);
+            
+            // Load any saved data
+            loadConversationHistory();
+            loadDocuments();
+        }
+        
+        function setupEventListeners() {
+            // Sidebar toggle
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+            });
+            
+            // Upload buttons
+            uploadBtn.addEventListener('click', () => fileUpload.click());
+            uploadFromViewer.addEventListener('click', () => fileUpload.click());
+            
+            // File upload handler
+            fileUpload.addEventListener('change', handleFileUpload);
+            
+            // Chat functionality
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            sendMessageBtn.addEventListener('click', sendMessage);
+            
+            // Suggestion buttons
+            document.querySelectorAll('.suggestion-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    messageInput.value = e.target.textContent;
+                    messageInput.focus();
+                });
+            });
+            
+            // RAG Search
+            ragSearchBtn.addEventListener('click', () => {
+                ragSearchModal.classList.remove('hidden');
+                document.getElementById('rag-search-input').focus();
+            });
+            
+            closeRagSearch.addEventListener('click', () => {
+                ragSearchModal.classList.add('hidden');
+            });
+            
+            // Search type buttons
+            document.getElementById('search-type-general').addEventListener('click', () => {
+                setSearchType('general');
+            });
+            
+            document.getElementById('search-type-entity').addEventListener('click', () => {
+                setSearchType('entity');
+            });
+            
+            document.getElementById('search-type-structured').addEventListener('click', () => {
+                setSearchType('structured');
+            });
+            
+            // Search buttons
+            document.getElementById('perform-rag-search').addEventListener('click', performRagSearch);
+            document.getElementById('perform-entity-search').addEventListener('click', performEntitySearch);
+            document.getElementById('perform-structured-search').addEventListener('click', performStructuredQuery);
+            
+            // Enter key for search inputs
+            document.getElementById('rag-search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performRagSearch();
+            });
+            
+            document.getElementById('entity-search-input-field').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performEntitySearch();
+            });
+            
+            document.getElementById('structured-search-input-field').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performStructuredQuery();
+            });
+            
+            // Model selector
+            document.getElementById('model-selector-btn').addEventListener('click', () => {
+                document.getElementById('model-dropdown').classList.toggle('hidden');
+            });
+            
+            document.querySelectorAll('#model-dropdown button').forEach(button => {
+                button.addEventListener('click', () => {
+                    currentModel = button.dataset.model;
+                    setActiveModel(currentModel);
+                    document.getElementById('model-dropdown').classList.add('hidden');
+                });
+            });
+            
+            // Close model dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.relative')) {
+                    document.getElementById('model-dropdown').classList.add('hidden');
+                }
+            });
+            
+            // Highlight toggle
+            document.getElementById('toggle-highlight').addEventListener('click', () => {
+                isHighlighting = !isHighlighting;
+                const btn = document.getElementById('toggle-highlight');
+                if (isHighlighting) {
+                    btn.classList.add('text-yellow-600', 'bg-yellow-50');
+                } else {
+                    btn.classList.remove('text-yellow-600', 'bg-yellow-50');
+                }
+            });
+        }
+        
+        function setActiveModel(model) {
+            // Update UI to show active model
+            document.querySelectorAll('.model-check').forEach(check => {
+                check.classList.add('hidden');
+            });
+            
+            document.querySelector(`button[data-model="${model}"] .model-check`).classList.remove('hidden');
+            document.getElementById('model-selector-btn').querySelector('span').textContent = 
+                document.querySelector(`button[data-model="${model}"] span`).textContent;
+        }
+        
+        function setSearchType(type) {
+            // Reset all search type buttons
+            document.querySelectorAll('.search-type-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-indigo-500', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            
+            // Hide all search inputs
+            document.getElementById('general-search-input').classList.add('hidden');
+            document.getElementById('entity-search-input').classList.add('hidden');
+            document.getElementById('structured-search-input').classList.add('hidden');
+            
+            // Activate selected type
+            const activeBtn = document.getElementById(`search-type-${type}`);
+            activeBtn.classList.add('active', 'bg-indigo-500', 'text-white');
+            activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+            
+            // Show corresponding input
+            document.getElementById(`${type}-search-input`).classList.remove('hidden');
+            
+            // Focus the input
+            document.getElementById(`${type}-search-input-field`).focus();
+        }
+        
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connection established');
+                connectionStatus.className = 'w-2 h-2 rounded-full bg-green-500';
+                reconnectAttempts = 0;
+                
+                // Request initial status
+                ws.send(JSON.stringify({
+                    type: 'status_request'
+                }));
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                    // If it's not JSON, display it as a plain message
+                    if (event.data && event.data.trim()) {
+                        addMessageToChat(event.data, 'bot');
+                    }
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket connection closed');
+                connectionStatus.className = 'w-2 h-2 rounded-full bg-red-500';
+                
+                // Attempt to reconnect after a delay
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    console.log(`Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`);
+                    setTimeout(connectWebSocket, 3000 * reconnectAttempts);
+                } else {
+                    showNotification('Connection lost. Please refresh the page.', 'error');
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                showNotification('Connection error occurred', 'error');
+            };
+        }
+        
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'response':
+                    addMessageToChat(data.content, 'bot');
+                    break;
+                    
+                case 'status':
+                    updateStatusUI(data.data);
+                    break;
+                    
+                case 'indexing_complete':
+                    showNotification(`Indexing complete: ${data.documents_indexed} documents from ${data.filename}`, 'success');
+                    // Refresh status
+                    ws.send(JSON.stringify({
+                        type: 'status_request'
+                    }));
+                    break;
+                    
+                case 'error':
+                    showNotification(`Error: ${data.message}`, 'error');
+                    break;
+                    
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        }
+        
+        function updateStatusUI(statusData) {
+            if (statusData.is_indexing) {
+                statusIndicator.classList.remove('hidden');
+                document.getElementById('loading-message').textContent = statusData.status_message;
+                
+                if (!loadingOverlay.classList.contains('hidden')) {
+                    loadingOverlay.classList.remove('hidden');
+                }
+            } else {
+                statusIndicator.classList.add('hidden');
+                loadingOverlay.classList.add('hidden');
+                
+                if (statusData.error) {
+                    showNotification(`Indexing error: ${statusData.error}`, 'error');
+                }
+            }
+        }
+        
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            currentFile = file;
+            
+            // Show loading overlay
+            loadingOverlay.classList.remove('hidden');
+            
+            // Update UI
+            document.getElementById('document-title').textContent = file.name;
+            document.getElementById('document-content').innerHTML = `
+                <div class="text-center py-16">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+                    <h3 class="text-lg font-medium text-gray-700">Processing ${file.name}</h3>
+                    <p class="text-gray-500 mt-2">Analyzing document content...</p>
+                </div>
+            `;
+            
+            // Upload file
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/upload/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Upload response:', result);
+                
+                if (result.status === 'success' || result.status === 'processing') {
+                    showNotification('File uploaded successfully', 'success');
+                    
+                    // Add to documents list
+                    addDocumentToList(file.name, result.pages_extracted || 1);
+                    
+                    // Load the document content
+                    fetch(`/document-content/${encodeURIComponent(file.name)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            console.error('Error loading document content:', data.error);
+                            showNotification(`Error loading document: ${data.error}`, 'error');
+                            loadingOverlay.classList.add('hidden');
+                            return;
+                        }
+                        
+                        displayDocumentContent(data.content, file.name);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching document content:', error);
+                        showNotification('Error loading document content', 'error');
+                        loadingOverlay.classList.add('hidden');
+                    });
+                } else {
+                    showNotification(`Upload failed: ${result.message}`, 'error');
+                    loadingOverlay.classList.add('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('Upload failed:', error);
+                showNotification('File upload failed', 'error');
+                loadingOverlay.classList.add('hidden');
+            });
+        }
+
+        function displayDocumentContent(content, filename) {
+            document.getElementById('document-content').innerHTML = `
+                <div class="prose max-w-none">
+                    <h1>${escapeHtml(filename)}</h1>
+                    <div class="whitespace-pre-wrap">${escapeHtml(content)}</div>
+                </div>
+            `;
+            
+            document.getElementById('document-title').textContent = filename;
+            loadingOverlay.classList.add('hidden');
+
+            if (window.documentStructureViewer) {
+                document.getElementById('structure-doc-selector').value = filename;
+                window.documentStructureViewer.loadDocumentStructure(filename);
+            }
+        }
+        
+        function addDocumentToList(name, pageCount) {
+            const documentsList = document.getElementById('documents-list');
+            
+            // Remove placeholder if it exists
+            const placeholder = documentsList.querySelector('.text-center');
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            const documentItem = document.createElement('div');
+            documentItem.className = 'document-card bg-white p-3 rounded-lg border border-gray-200 cursor-pointer';
+            documentItem.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                        <i class="bi bi-file-text text-indigo-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-medium text-gray-800 truncate">${name}</h4>
+                        <p class="text-xs text-gray-500 mt-1">${pageCount} page${pageCount !== 1 ? 's' : ''} • Uploaded just now</p>
+                    </div>
+                </div>
+            `;
+            
+            documentItem.addEventListener('click', () => {
+                // Load the actual document
+                document.getElementById('document-title').textContent = name;
+                fetch(`/document-content/${encodeURIComponent(name)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error loading document content:', data.error);
+                        showNotification(`Error loading document: ${data.error}`, 'error');
+                        return;
+                    }
+                    displayDocumentContent(data.content, name);
+                })
+                .catch(error => {
+                    console.error('Error fetching document content:', error);
+                    showNotification('Error loading document content', 'error');
+                });
+            });
+            
+            documentsList.prepend(documentItem);
+            
+            // Update document count
+            const count = documentsList.children.length;
+            document.getElementById('document-count').textContent = `${count} document${count !== 1 ? 's' : ''}`;
+
+            if (window.documentStructureViewer) {
+                window.documentStructureViewer.loadDocumentList();
+            }
+        }
+        
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            
+            if (messageText && ws && ws.readyState === WebSocket.OPEN) {
+                // Add message to chat
+                addMessageToChat(messageText, 'user');
+                
+                // Send message via WebSocket
+                ws.send(JSON.stringify({
+                    type: 'query',
+                    content: messageText
+                }));
+                
+                // Clear input
+                messageInput.value = '';
+                
+                // Show typing indicator
+                showTypingIndicator();
+            }
+        }
+        
+        function addMessageToChat(message, sender) {
+            // Remove typing indicator if present
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+            
+            // Remove initial placeholder if it exists
+            const placeholder = chatMessages.querySelector('.text-center');
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fade-in ${sender === 'user' ? 'flex justify-end' : 'flex justify-start'}`;
+            
+            // Check if the message is a structured response
+            const structuredDisplay = displayStructuredResponse(message);
+            
+            if (structuredDisplay) {
+                messageDiv.innerHTML = structuredDisplay;
+            } else {
+                // Regular message
+                if (sender === 'user') {
+                    messageDiv.innerHTML = `
+                        <div class="message-bubble user-message">
+                            <div>${escapeHtml(message)}</div>
+                            <div class="text-xs opacity-75 mt-1 text-right">${formatTime(new Date())}</div>
+                        </div>
+                    `;
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="message-bubble bot-message">
+                            <div>${escapeHtml(message)}</div>
+                            <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Save to conversation history
+            saveMessageToHistory(message, sender);
+        }
+        
+        function displayStructuredResponse(response) {
+            try {
+                // Try to parse as JSON
+                const structuredData = typeof response === 'string' ? JSON.parse(response) : response;
+                
+                // Check if it's a structured gazette response
+                if (structuredData.Gazette_Notice_ID) {
+                    return `
+                        <div class="message-bubble bot-message">
+                            <div class="structured-response gazette-notice">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-lg font-semibold text-blue-800">${structuredData.Gazette_Notice_ID}</h3>
+                                    <span class="text-sm text-gray-500">Page: ${structuredData.Exact_Location_Page || 'N/A'}</span>
+                                </div>
+                                <p class="text-gray-700 mb-3">${structuredData.Summary}</p>
+                                
+                                ${structuredData.Appointed_Entities && structuredData.Appointed_Entities.length > 0 ? `
+                                    <div class="mt-3">
+                                        <h4 class="font-medium text-gray-800 mb-2">Appointed Entities:</h4>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            ${structuredData.Appointed_Entities.map(entity => `
+                                                <div class="bg-white p-2 rounded border">
+                                                    <div class="font-medium text-sm">${entity.Name}</div>
+                                                    <div class="text-xs text-gray-600">${entity.Role}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${structuredData.Key_Details && structuredData.Key_Details.length > 0 ? `
+                                    <div class="mt-3">
+                                        <h4 class="font-medium text-gray-800 mb-2">Key Details:</h4>
+                                        <div class="space-y-1">
+                                            ${structuredData.Key_Details.map(detail => `
+                                                <div class="flex">
+                                                    <div class="font-medium text-sm w-24">${detail.Category}:</div>
+                                                    <div class="text-sm">${detail.Value}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
+                        </div>
+                    `;
+                }
+                
+                // Check if it's an entity search response
+                if (structuredData.results && Array.isArray(structuredData.results)) {
+                    return `
+                        <div class="message-bubble bot-message">
+                            <div class="structured-response entity-result">
+                                <h3 class="text-lg font-semibold mb-3">Entity Search Results</h3>
+                                <div class="space-y-3">
+                                    ${structuredData.results.map(result => `
+                                        <div class="bg-white p-3 rounded border">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h4 class="font-medium">${result.metadata.document_name || 'Unknown Document'}</h4>
+                                                <span class="relevance-badge">
+                                                    ${Math.round((result.relevance_score || 0) * 100)}% match
+                                                </span>
+                                            </div>
+                                            <p class="text-sm text-gray-700">${result.text.substring(0, 200)}${result.text.length > 200 ? '...' : ''}</p>
+                                            <div class="mt-2 flex justify-end">
+                                                <button class="text-xs text-blue-600 hover:text-blue-800 view-result" data-id="${result.metadata.id}">
+                                                    <i class="bi bi-eye mr-1"></i>View
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="text-xs opacity-75 mt-1">${formatTime(new Date())}</div>
+                        </div>
+                    `;
+                }
+                
+                // If not a recognized structured format, return null
+                return null;
+            } catch (e) {
+                console.error('Error parsing structured response:', e);
+                return null;
+            }
+        }
+        
+        function showTypingIndicator() {
+            // Remove existing typing indicator
+            const existingIndicator = document.getElementById('typing-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'flex justify-start fade-in';
+            typingDiv.innerHTML = `
+                <div class="message-bubble bot-message">
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function performRagSearch() {
+            const query = document.getElementById('rag-search-input').value;
+            if (!query.trim()) {
+                showNotification('Please enter a search query', 'warning');
+                return;
+            }
+            
+            // Show loading state
+            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+            
+            // Perform search via WebSocket
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'query',
+                    content: query
+                }));
+            } else {
+                showNotification('WebSocket not connected. Please wait for connection.', 'error');
+            }
+        }
+        
+        function performEntitySearch() {
+            const entityName = document.getElementById('entity-search-input-field').value;
+            if (!entityName.trim()) {
+                showNotification('Please enter an entity name', 'warning');
+                return;
+            }
+            
+            // Show loading state
+            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+            
+            // Perform entity search via API
+            fetch('/entity-search/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    entity_name: entityName,
+                    n_results: 10
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showNotification(`Error: ${data.error}`, 'error');
+                    ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
+                } else {
+                    displayRagSearchResults(data.results);
+                }
+            })
+            .catch(error => {
+                console.error('Entity search error:', error);
+                showNotification('Entity search failed', 'error');
+                ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Search failed. Please try again.</p>';
+            });
+        }
+        
+        function performStructuredQuery() {
+            const query = document.getElementById('structured-search-input-field').value;
+            if (!query.trim()) {
+                showNotification('Please enter a query', 'warning');
+                return;
+            }
+            
+            // Show loading state
+            ragSearchResults.innerHTML = '<div class="flex justify-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div></div>';
+            
+            // Perform structured query via API
+            fetch('/structured-query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showNotification(`Error: ${data.error}`, 'error');
+                    ragSearchResults.innerHTML = `<p class="text-red-500 text-center py-4">${data.error}</p>`;
+                } else {
+                    // Display structured response
+                    const structuredDisplay = displayStructuredResponse(data);
+                    if (structuredDisplay) {
+                        ragSearchResults.innerHTML = structuredDisplay;
+                    } else {
+                        ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No structured data found</p>';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Structured query error:', error);
+                showNotification('Structured query failed', 'error');
+                ragSearchResults.innerHTML = '<p class="text-red-500 text-center py-4">Query failed. Please try again.</p>';
+            });
+        }
+        
+        function displayRagSearchResults(results) {
+            if (!results || results.length === 0) {
+                ragSearchResults.innerHTML = '<p class="text-gray-500 text-center py-4">No results found</p>';
+                return;
+            }
+            
+            ragSearchResults.innerHTML = '';
+            
+            results.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'bg-gray-50 p-4 rounded-lg mb-3';
+                
+                // Check if this is a structured response
+                const structuredDisplay = displayStructuredResponse(result);
+                if (structuredDisplay) {
+                    resultItem.innerHTML = structuredDisplay;
+                } else {
+                    // Fallback to original display
+                    resultItem.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-medium">${escapeHtml(result.title || 'Document Section')}</h4>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                ${Math.round((result.relevance_score || result.relevance || 0) * 100)}% match
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">${escapeHtml(result.text || result.content)}</p>
+                        <div class="text-xs text-gray-500">
+                            Source: ${escapeHtml(result.metadata?.document_name || result.source || 'Unknown')}
+                        </div>
+                        <div class="mt-2">
+                            <button class="text-xs text-blue-600 hover:text-blue-800 mr-3 view-result" data-id="${result.id}">
+                                <i class="bi bi-eye mr-1"></i>View
+                            </button>
+                            <button class="text-xs text-blue-600 hover:text-blue-800 ask-about-result" data-id="${result.id}">
+                                <i class="bi bi-question-circle mr-1"></i>Ask about this
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                ragSearchResults.appendChild(resultItem);
+            });
+            
+            // Add event listeners to buttons
+            document.querySelectorAll('.view-result').forEach(button => {
+                button.addEventListener('click', () => {
+                    // In a real implementation, this would navigate to the document and section
+                    showNotification('Navigating to result...', 'info');
+                    ragSearchModal.classList.add('hidden');
+                });
+            });
+            
+            document.querySelectorAll('.ask-about-result').forEach(button => {
+                button.addEventListener('click', () => {
+                    const resultId = button.dataset.id;
+                    const result = results.find(r => r.id === resultId);
+                    if (result) {
+                        messageInput.value = `Explain this result: "${result.title || result.text}"`;
+                        ragSearchModal.classList.add('hidden');
+                        messageInput.focus();
+                    }
+                });
+            });
+        }
+        
+        function loadConversationHistory() {
+            // Fetch conversation history from the backend
+            fetch('/conversation-history/')
+            .then(response => response.json())
+            .then(history => {
+                if (history.error) {
+                    console.error('Error loading conversation history:', history.error);
+                    return;
+                }
+                
+                updateConversationHistoryUI(history);
+            })
+            .catch(error => {
+                console.error('Error loading conversation history:', error);
+            });
+        }
+        
+        function updateConversationHistoryUI(history) {
+            const historyContainer = document.getElementById('conversation-history');
+            
+            if (!history || history.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="text-center py-4 text-gray-400">
+                        <p class="text-sm">No conversations yet</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let historyHTML = '';
+            
+            history.forEach(conversation => {
+                const date = new Date(conversation.timestamp);
+                const formattedTime = formatTime(date);
+                
+                historyHTML += `
+                    <div class="history-item bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                        <div class="font-medium text-sm text-gray-800">${conversation.title}</div>
+                        <div class="text-xs text-gray-500 mt-1 truncate">${conversation.preview}</div>
+                        <div class="text-xs text-gray-400 mt-2">${formattedTime}</div>
+                    </div>
+                `;
+            });
+            
+            historyContainer.innerHTML = historyHTML;
+        }
+        
+        function loadDocuments() {
+            // Fetch documents from the backend
+            fetch('/collection-info/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error loading documents:', data.error);
+                    return;
+                }
+                
+                // Update document count
+                document.getElementById('document-count').textContent = `${data.total_documents || 0} document${data.total_documents !== 1 ? 's' : ''}`;
+                
+                // If there are documents, load them
+                if (data.total_documents > 0) {
+                    // Fetch actual documents
+                    fetch('/list-documents/')
+                    .then(response => response.json())
+                    .then(documents => {
+                        if (documents.error) {
+                            console.error('Error fetching documents:', documents.error);
+                            return;
+                        }
+                        
+                        // Clear placeholder if it exists
+                        const documentsList = document.getElementById('documents-list');
+                        const placeholder = documentsList.querySelector('.text-center');
+                        if (placeholder) {
+                            placeholder.remove();
+                        }
+                        
+                        // Add each document to the list
+                        documents.forEach(doc => {
+                            addDocumentToList(doc.name, doc.pages || 1);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching documents:', error);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading collection info:', error);
+            });
+        }
+        
+        function saveMessageToHistory(message, sender) {
+            // In a real implementation, this would save to localStorage or an API
+            console.log('Saving message to history:', { message, sender });
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `fade-in p-4 rounded-lg shadow-lg max-w-sm ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                type === 'warning' ? 'bg-yellow-500 text-white' :
+                'bg-indigo-500 text-white'
+            }`;
+            
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="bi ${
+                        type === 'success' ? 'bi-check-circle' :
+                        type === 'error' ? 'bi-exclamation-triangle' :
+                        type === 'warning' ? 'bi-exclamation-circle' :
+                        'bi-info-circle'
+                    } mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            notificationContainer.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 5000);
+        }
+        
+        // Utility functions
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+
+    // Document Structure Viewer
+    class DocumentStructureViewer {
+        constructor() {
+            this.currentDocument = null;
+            this.structureData = null;
+            this.init();
+        }
+        
+        init() {
+            this.setupEventListeners();
+            this.loadDocumentList();
+        }
+        
+        setupEventListeners() {
+            // Structure viewer toggle
+            document.getElementById('toggle-structure-viewer').addEventListener('click', () => {
+                this.showStructureViewer();
+            });
+            
+            document.getElementById('close-structure-viewer').addEventListener('click', () => {
+                this.hideStructureViewer();
+            });
+            
+            // Document selector
+            document.getElementById('structure-doc-selector').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    this.loadDocumentStructure(e.target.value);
+                } else {
+                    this.showEmptyState();
+                }
+            });
+            
+            // Tab switching
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    this.switchTab(e.target.dataset.tab);
+                });
+            });
+        }
+        
+        showStructureViewer() {
+            document.getElementById('document-structure-viewer').classList.remove('translate-x-full');
+            this.loadDocumentList();
+        }
+        
+        hideStructureViewer() {
+            document.getElementById('document-structure-viewer').classList.add('translate-x-full');
+        }
+        
+        async loadDocumentList() {
+            try {
+                const response = await fetch('/list-documents/');
+                const documents = await response.json();
+                
+                const selector = document.getElementById('structure-doc-selector');
+                selector.innerHTML = '<option value="">Select a document...</option>';
+                
+                documents.forEach(doc => {
+                    const option = document.createElement('option');
+                    option.value = doc.name;
+                    option.textContent = doc.name;
+                    selector.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading document list:', error);
+                showNotification('Failed to load document list', 'error');
+            }
+        }
+        
+        async loadDocumentStructure(filename) {
+            this.showLoading();
+            
+            try {
+                const response = await fetch(`/document-structure/${encodeURIComponent(filename)}`);
+                const structureData = await response.json();
+                
+                if (response.ok) {
+                    this.structureData = structureData;
+                    this.currentDocument = filename;
+                    this.renderStructure();
+                } else {
+                    throw new Error(structureData.error || 'Failed to load structure');
+                }
+            } catch (error) {
+                console.error('Error loading document structure:', error);
+                this.showError('Failed to load document structure');
+                showNotification('Failed to load document structure', 'error');
+            }
+        }
+        
+        renderStructure() {
+            this.hideLoading();
+            document.getElementById('structure-content').classList.remove('hidden');
+            document.getElementById('structure-empty').classList.add('hidden');
+            
+            this.renderSummary();
+            this.renderHierarchy();
+            this.renderTables();
+            this.renderEntities();
+            this.renderSections();
+            
+            // Show summary tab by default
+            this.switchTab('summary');
+        }
+        
+        renderSummary() {
+            const summary = this.structureData.summary;
+            const content = document.getElementById('summary-content');
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-indigo-600">${summary.total_pages}</div>
+                        <div class="text-sm text-gray-500">Pages</div>
+                    </div>
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-green-600">${summary.total_words}</div>
+                        <div class="text-sm text-gray-500">Words</div>
+                    </div>
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-blue-600">${summary.headings_count}</div>
+                        <div class="text-sm text-gray-500">Headings</div>
+                    </div>
+                    <div class="structure-stat-card text-center">
+                        <div class="text-2xl font-bold text-purple-600">${summary.tables_count}</div>
+                        <div class="text-sm text-gray-500">Tables</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="structure-stat-card">
+                        <h3 class="font-semibold text-gray-800 mb-3">Document Information</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Document Type:</span>
+                                <span class="font-medium">${summary.document_type}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Reading Time:</span>
+                                <span class="font-medium">${summary.estimated_reading_time}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Lines:</span>
+                                <span class="font-medium">${summary.total_lines}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Paragraphs:</span>
+                                <span class="font-medium">${summary.total_paragraphs}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Complexity:</span>
+                                <span class="font-medium">${summary.complexity_score || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="structure-stat-card">
+                        <h3 class="font-semibold text-gray-800 mb-3">Content Analysis</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg. Sentence Length:</span>
+                                <span class="font-medium">${summary.avg_sentence_length || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg. Word Length:</span>
+                                <span class="font-medium">${summary.avg_word_length || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Sentences:</span>
+                                <span class="font-medium">${summary.total_sentences || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        renderHierarchy() {
+            const hierarchy = this.structureData.hierarchy || [];
+            const content = document.getElementById('hierarchy-content');
+            
+            if (hierarchy.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No hierarchical structure detected</p>';
+                return;
+            }
+            
+            content.innerHTML = hierarchy.map(item => `
+                <div class="structure-hierarchy-item level-${item.level}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded">Level ${item.level}</span>
+                                <span class="text-xs text-gray-500">${item.type}</span>
+                            </div>
+                            <div class="mt-1 font-medium">${this.escapeHtml(item.text)}</div>
+                        </div>
+                        <div class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            Page ${item.page}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        renderTables() {
+            const tables = this.structureData.tables || [];
+            const content = document.getElementById('tables-content');
+            
+            if (tables.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No tables detected</p>';
+                return;
+            }
+            
+            content.innerHTML = tables.map((table, index) => `
+                <div class="structure-table-container">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-800">Table ${index + 1}</h3>
+                        <div class="flex items-center space-x-2 text-sm text-gray-500">
+                            <span>${table.row_count || table.shape?.[0] || 0} rows × ${table.column_count || table.shape?.[1] || 0} columns</span>
+                            <span class="px-2 py-1 bg-gray-100 rounded">Lines ${table.start_line}-${table.end_line}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="structure-table">
+                            <thead>
+                                <tr>
+                                    ${(table.columns || []).map(col => `
+                                        <th>${this.escapeHtml(col)}</th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(table.rows || []).map(row => `
+                                    <tr>
+                                        ${row.map(cell => `
+                                            <td>${this.escapeHtml(cell)}</td>
+                                        `).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        renderEntities() {
+            const entities = this.structureData.entities || {};
+            const content = document.getElementById('entities-content');
+            
+            const entityTypes = {
+                organizations: { icon: 'bi-building', color: 'blue' },
+                people: { icon: 'bi-person', color: 'green' },
+                dates: { icon: 'bi-calendar', color: 'purple' },
+                emails: { icon: 'bi-envelope', color: 'indigo' },
+                phones: { icon: 'bi-telephone', color: 'pink' },
+                references: { icon: 'bi-card-text', color: 'yellow' }
+            };
+            
+            content.innerHTML = Object.entries(entityTypes).map(([type, config]) => {
+                const items = entities[type] || [];
+                if (items.length === 0) return '';
+                
+                return `
+                    <div class="structure-stat-card">
+                        <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <i class="bi ${config.icon} text-${config.color}-500 mr-2"></i>
+                            ${type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+                            <span class="ml-2 px-2 py-1 text-xs bg-${config.color}-100 text-${config.color}-800 rounded">
+                                ${items.length}
+                            </span>
+                        </h3>
+                        <div class="flex flex-wrap gap-2">
+                            ${items.map(item => `
+                                <span class="entity-tag bg-${config.color}-100 text-${config.color}-800">
+                                    ${this.escapeHtml(item)}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            if (content.innerHTML === '') {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No entities detected</p>';
+            }
+        }
+        
+        renderSections() {
+            const sections = this.structureData.sections || [];
+            const content = document.getElementById('sections-content');
+            
+            if (sections.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">No sections detected</p>';
+                return;
+            }
+            
+            content.innerHTML = sections.map(section => `
+                <div class="structure-section-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold text-gray-800">${this.escapeHtml(section.title)}</h3>
+                        <div class="flex items-center space-x-2 text-sm text-gray-500">
+                            <span class="px-2 py-1 bg-gray-100 rounded">Level ${section.level}</span>
+                            <span>${section.word_count} words</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">${this.escapeHtml(section.content_preview || '')}</p>
+                    <div class="mt-2 text-xs text-gray-500">
+                        Line ${section.start_line} • ${section.type}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                if (button.dataset.tab === tabName) {
+                    button.classList.add('active', 'text-indigo-600', 'border-indigo-600');
+                    button.classList.remove('text-gray-500', 'border-transparent');
+                } else {
+                    button.classList.remove('active', 'text-indigo-600', 'border-indigo-600');
+                    button.classList.add('text-gray-500', 'border-transparent');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                if (content.id === `tab-${tabName}`) {
+                    content.classList.remove('hidden');
+                    content.classList.add('active');
+                } else {
+                    content.classList.add('hidden');
+                    content.classList.remove('active');
+                }
+            });
+        }
+        
+        showLoading() {
+            document.getElementById('structure-loading').classList.remove('hidden');
+            document.getElementById('structure-content').classList.add('hidden');
+            document.getElementById('structure-empty').classList.add('hidden');
+        }
+        
+        hideLoading() {
+            document.getElementById('structure-loading').classList.add('hidden');
+        }
+        
+        showEmptyState() {
+            document.getElementById('structure-content').classList.add('hidden');
+            document.getElementById('structure-loading').classList.add('hidden');
+            document.getElementById('structure-empty').classList.remove('hidden');
+        }
+        
+        showError(message) {
+            this.showEmptyState();
+            document.getElementById('structure-empty').innerHTML = `
+                <i class="bi bi-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+                <p class="text-lg text-red-500">${message}</p>
+            `;
+        }
+        
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        window.documentStructureViewer = new DocumentStructureViewer();
+    });
+    </script>
+
+    <!-- Document Structure Viewer -->
+<div id="document-structure-viewer" class="fixed top-0 right-0 w-full md:w-3/4 lg:w-2/3 xl:w-3/5 h-full bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+        <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+            <i class="bi bi-diagram-3 text-indigo-600 mr-2"></i>
+            Document Structure Analysis
+        </h2>
+        <button id="close-structure-viewer" class="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+            <i class="bi bi-x-lg text-xl"></i>
+        </button>
+    </div>
+    
+    <div class="flex-1 overflow-hidden flex flex-col">
+        <!-- Document Selector -->
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <select id="structure-doc-selector" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                <option value="">Select a document...</option>
+            </select>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="structure-loading" class="hidden p-8 text-center flex-1 flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4"></div>
+            <p class="text-gray-500">Analyzing document structure...</p>
+        </div>
+        
+        <!-- Content Tabs -->
+        <div id="structure-content" class="hidden flex-1 flex flex-col">
+            <div class="border-b border-gray-200 bg-white">
+                <nav class="flex -mb-px">
+                    <button class="tab-button active px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600" data-tab="summary">
+                        <i class="bi bi-card-text mr-2"></i>Summary
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="hierarchy">
+                        <i class="bi bi-diagram-3 mr-2"></i>Hierarchy
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="tables">
+                        <i class="bi bi-table mr-2"></i>Tables
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="entities">
+                        <i class="bi bi-tags mr-2"></i>Entities
+                    </button>
+                    <button class="tab-button px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent" data-tab="sections">
+                        <i class="bi bi-journal-text mr-2"></i>Sections
+                    </button>
+                </nav>
+            </div>
+            
+            <!-- Tab Content -->
+            <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
+                <!-- Summary Tab -->
+                <div id="tab-summary" class="tab-content active">
+                    <div id="summary-content"></div>
+                </div>
+                
+                <!-- Hierarchy Tab -->
+                <div id="tab-hierarchy" class="tab-content hidden">
+                    <div id="hierarchy-content" class="space-y-2"></div>
+                </div>
+                
+                <!-- Tables Tab -->
+                <div id="tab-tables" class="tab-content hidden">
+                    <div id="tables-content" class="space-y-6"></div>
+                </div>
+                
+                <!-- Entities Tab -->
+                <div id="tab-entities" class="tab-content hidden">
+                    <div id="entities-content" class="space-y-4"></div>
+                </div>
+                
+                <!-- Sections Tab -->
+                <div id="tab-sections" class="tab-content hidden">
+                    <div id="sections-content" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="structure-empty" class="p-8 text-center text-gray-500 flex-1 flex flex-col items-center justify-center">
+            <i class="bi bi-file-earmark-text text-5xl mb-4 text-gray-300"></i>
+            <p class="text-lg">Select a document to view its structure</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
