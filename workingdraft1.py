@@ -1,13 +1,14 @@
 """
 Document Intelligence System - Streamlit Application
 Python 3.15.5
-Fully Fixed & Optimized
+Fully Fixed & Optimized with Enhanced UI
 """
 
 import os
 import tempfile
 import shutil
 import hashlib
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 
@@ -34,16 +35,18 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.tools import tool
 from langchain_classic import hub
 
-
 # Docling imports
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat, DocumentStream
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling_core.types.doc import DoclingDocument
 
-
 # Streamlit extras
 from streamlit_extras.bottom_container import bottom
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ===========================
 # Environment & Config
@@ -55,7 +58,7 @@ load_dotenv()
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "granite-embedding:30m")
-CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen3:1.7b") #maybe test with granite4 which is good for tool calling
+CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen3:1.7b")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "8"))
@@ -179,7 +182,7 @@ class DocumentProcessor:
                     "is_empty": df.empty  # Add is_empty field
                 })
             except Exception as e:
-                print(f"Warning: Could not process table {i}: {e}")
+                logger.warning(f"Warning: Could not process table {i}: {e}")
                 continue
         
         # Extract images
@@ -269,6 +272,7 @@ class DocumentProcessor:
 
                 except Exception as e:
                     st.error(f"❌ Failed to process {uploaded_file.name}: {str(e)}")
+                    logger.error(f"Failed to process {uploaded_file.name}: {str(e)}")
                     
         finally:
             # Cleanup temporary directory
@@ -284,6 +288,7 @@ class DocumentProcessor:
                 return conversion_result.document
         except Exception as e:
             st.error(f"Stream processing failed: {e}")
+            logger.error(f"Stream processing failed: {e}")
             return None
 
 
@@ -346,6 +351,7 @@ class VectorStoreManager:
             return vectorstore
         except Exception as e:
             st.error(f"Error creating vector store: {e}")
+            logger.error(f"Error creating vector store: {e}")
             raise
 
     def load_existing_vectorstore(self) -> Optional[Chroma]:
@@ -360,6 +366,7 @@ class VectorStoreManager:
             )
         except Exception as e:
             st.warning(f"Could not load existing vector store: {e}")
+            logger.warning(f"Could not load existing vector store: {e}")
             return None
 
 
@@ -501,7 +508,7 @@ class DocumentStructureVisualizer:
                         "is_empty": df.empty,  # Add is_empty field
                     })
                 except Exception as e:
-                    print(f"Warning: Could not process table {i}: {e}")
+                    logger.warning(f"Warning: Could not process table {i}: {e}")
                     continue
 
         return tables_info
@@ -607,6 +614,7 @@ def search_documents(query: str) -> str:
         
         return "\n---\n".join(parts)
     except Exception as e:
+        logger.error(f"Search error: {e}")
         return f"Search error: {e}"
 
 # ===========================
@@ -630,11 +638,11 @@ def create_documentation_agent():
             query: The search query to find relevant information in documents
         """
         try:
-            print(f"🔍 TOOL CALLED with query: {query}")
+            logger.info(f"TOOL CALLED with query: {query}")
             
             # Use the vectorstore from closure
             results = vectorstore.similarity_search(query, k=TOP_K_RESULTS)
-            print(f"📊 Found {len(results)} results")
+            logger.info(f"Found {len(results)} results")
             
             if not results:
                 return "No relevant information found in the documents for this query."
@@ -648,7 +656,7 @@ def create_documentation_agent():
             return "\n---\n".join(parts)
             
         except Exception as e:
-            print(f"❌ Search error: {e}")
+            logger.error(f"Search error: {e}")
             return f"Search error: {str(e)}"
     
     # Create LLM
@@ -672,13 +680,153 @@ def create_documentation_agent():
 
 
 # ===========================
-# Streamlit App (Enhanced)
+# Streamlit App (Enhanced UI)
 # ===========================
 st.set_page_config(
     page_title="Document Intelligence Assistant", 
     page_icon="📚", 
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Custom CSS for enhanced UI
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        background: linear-gradient(90deg, #4E79A7, #F28E2B);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .sub-header {
+        font-size: 1.5rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        color: #555;
+    }
+    
+    .card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        border-left: 4px solid #4E79A7;
+    }
+    
+    .status-success {
+        color: #28a745;
+        font-weight: 500;
+    }
+    
+    .status-warning {
+        color: #ffc107;
+        font-weight: 500;
+    }
+    
+    .status-error {
+        color: #dc3545;
+        font-weight: 500;
+    }
+    
+    .chat-message {
+        padding: 10px 15px;
+        border-radius: 18px;
+        margin-bottom: 10px;
+        max-width: 80%;
+        word-wrap: break-word;
+    }
+    
+    .user-message {
+        background-color: #f1f0f0;
+        margin-left: auto;
+        text-align: right;
+    }
+    
+    .assistant-message {
+        background-color: #e3f2fd;
+    }
+    
+    .file-upload-container {
+        border: 2px dashed #4E79A7;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+        background-color: #f8f9fa;
+    }
+    
+    .progress-container {
+        margin: 15px 0;
+    }
+    
+    .tab-container {
+        margin-top: 20px;
+    }
+    
+    .document-card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 15px;
+        border-left: 4px solid #F28E2B;
+    }
+    
+    .document-title {
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .document-meta {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    /* Sidebar styles */
+    .sidebar-content {
+        padding: 15px;
+    }
+    
+    .sidebar-section {
+        margin-bottom: 25px;
+    }
+    
+    .sidebar-title {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #333;
+    }
+    
+    /* Table styles */
+    .dataframe {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    /* Image styles */
+    .image-container {
+        text-align: center;
+        margin: 15px 0;
+    }
+    
+    .image-caption {
+        font-style: italic;
+        color: #666;
+        margin-top: 5px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 def initialize_session_state():
     defaults = {
@@ -703,32 +851,65 @@ def process_and_index(uploaded_files):
         st.warning("No files uploaded.")
         return
 
-    with st.spinner("🔄 Processing documents with optimized Docling..."):
-        processor = DocumentProcessor()
-        docs, docling_docs = processor.process_uploaded_files(uploaded_files)
-        if not docs:
-            st.error("No new documents were processed.")
-            return
-        st.session_state.docling_docs.extend(docling_docs)
+    # Create a progress bar
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        with st.spinner("🔄 Processing documents with optimized Docling..."):
+            status_text.text("Initializing document processor...")
+            progress_bar.progress(10)
+            
+            processor = DocumentProcessor()
+            progress_bar.progress(20)
+            
+            status_text.text("Extracting content from documents...")
+            docs, docling_docs = processor.process_uploaded_files(uploaded_files)
+            progress_bar.progress(60)
+            
+            if not docs:
+                st.error("No new documents were processed.")
+                return
+                
+            st.session_state.docling_docs.extend(docling_docs)
+            progress_bar.progress(70)
 
-    with st.spinner("✂️ Chunking & embedding..."):
-        chunks = st.session_state.vs_manager.chunk_documents(docs)
+        with st.spinner("✂️ Chunking & embedding..."):
+            status_text.text("Splitting documents into chunks...")
+            chunks = st.session_state.vs_manager.chunk_documents(docs)
+            progress_bar.progress(80)
 
-    with st.spinner("🏗️ Building vector database..."):
-        vectorstore = st.session_state.vs_manager.create_vectorstore(chunks)
-        st.session_state.vectorstore = vectorstore
+        with st.spinner("🏗️ Building vector database..."):
+            status_text.text("Creating vector embeddings...")
+            vectorstore = st.session_state.vs_manager.create_vectorstore(chunks)
+            st.session_state.vectorstore = vectorstore
+            progress_bar.progress(90)
 
-    with st.spinner("🤖 Initializing agent..."):
-        st.session_state.agent = create_documentation_agent()
+        with st.spinner("🤖 Initializing agent..."):
+            status_text.text("Setting up AI assistant...")
+            st.session_state.agent = create_documentation_agent()
+            progress_bar.progress(100)
 
-    st.session_state.processing_status = "completed"
-    st.success("🎉 All documents indexed! You can now chat.")
+        st.session_state.processing_status = "completed"
+        st.success("🎉 All documents indexed! You can now chat.")
+        logger.info("Document processing completed successfully")
+        
+    except Exception as e:
+        st.error(f"Error during processing: {str(e)}")
+        logger.error(f"Error during processing: {str(e)}")
+    finally:
+        # Clear the progress indicators
+        progress_bar.empty()
+        status_text.empty()
 
 def render_sidebar():
     with st.sidebar:
-        st.title("⚙️ Setup")
-
-        # Model selection
+        # Enhanced sidebar header
+        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+        
+        st.markdown('<div class="sidebar-title">⚙️ Configuration</div>', unsafe_allow_html=True)
+        
+        # Model selection with enhanced UI
         try:
             response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
             if response.status_code == 200:
@@ -741,22 +922,34 @@ def render_sidebar():
         st.session_state.embedding_model = st.selectbox(
             "Embedding Model", 
             options=models, 
-            index=models.index(EMBEDDING_MODEL) if EMBEDDING_MODEL in models else 0
+            index=models.index(EMBEDDING_MODEL) if EMBEDDING_MODEL in models else 0,
+            help="Model used for creating embeddings from document text"
         )
+        
         st.session_state.chat_model = st.selectbox(
             "Chat Model", 
             options=models, 
-            index=models.index(CHAT_MODEL) if CHAT_MODEL in models else 0
+            index=models.index(CHAT_MODEL) if CHAT_MODEL in models else 0,
+            help="Model used for generating responses to your questions"
         )
-
-        st.divider()
         
-        uploaded = st.file_uploader(
-            "📤 Upload Documents", 
-            type=SUPPORTED_FORMATS, 
-            accept_multiple_files=True,
-            help="Supported formats: PDF, DOCX, PPTX, HTML"
-        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        
+        # Enhanced file upload section
+        st.markdown('<div class="sidebar-title">📤 Document Upload</div>', unsafe_allow_html=True)
+        
+        # File upload with drag and drop
+        with st.container():
+            st.markdown('<div class="file-upload-container">', unsafe_allow_html=True)
+            uploaded = st.file_uploader(
+                "Drag & drop files here or click to browse", 
+                type=SUPPORTED_FORMATS, 
+                accept_multiple_files=True,
+                help="Supported formats: PDF, DOCX, PPTX, HTML",
+                label_visibility="collapsed"
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         if uploaded:
             new_files = [f for f in uploaded if compute_file_hash(f) not in st.session_state.processed_hashes]
@@ -767,31 +960,159 @@ def render_sidebar():
                     process_and_index(new_files)
             else:
                 st.info("✅ All files already processed")
-
-        st.divider()
         
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        
+        # Reset button with confirmation
         if st.button("🗑️ Clear All & Reset", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-
-        # Display current status
-        st.divider()
-        st.subheader("📊 Current Status")
+            if st.session_state.get("confirm_reset", False):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
+            else:
+                st.session_state.confirm_reset = True
+                st.warning("Click again to confirm reset")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+        
+        # Enhanced status display
+        st.markdown('<div class="sidebar-title">📊 System Status</div>', unsafe_allow_html=True)
+        
         if st.session_state.vectorstore:
-            st.success("✅ Documents indexed and ready")
+            st.markdown('<div class="status-success">✅ Documents indexed and ready</div>', unsafe_allow_html=True)
             st.write(f"📚 Documents: {len(st.session_state.docling_docs)}")
+            
+            # Show document list
+            if st.session_state.docling_docs:
+                with st.expander("View Documents"):
+                    for doc in st.session_state.docling_docs:
+                        st.markdown(f"""
+                        <div class="document-card">
+                            <div class="document-title">{doc["filename"]}</div>
+                            <div class="document-meta">
+                                Pages: {doc["metadata"].get("total_pages", "N/A")} | 
+                                Tables: {doc["metadata"].get("total_tables", "N/A")} | 
+                                Images: {doc["metadata"].get("total_images", "N/A")}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
         else:
-            st.info("📥 Waiting for documents...")
+            st.markdown('<div class="status-warning">📥 Waiting for documents...</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def render_chat_interface():
+    """Render the enhanced chat interface."""
+    # Header for the chat interface
+    st.markdown('<h1 class="main-header">Document Intelligence Assistant</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Ask questions about your uploaded documents</p>', unsafe_allow_html=True)
+    
+    if not st.session_state.vectorstore:
+        # Show a welcome message when no documents are loaded
+        st.markdown("""
+        <div class="card">
+            <h3>Welcome to Document Intelligence Assistant</h3>
+            <p>Please upload and process documents to start chatting. Use the sidebar to upload your files.</p>
+            <p>Once your documents are processed, you can ask questions like:</p>
+            <ul>
+                <li>What are the main topics covered in the documents?</li>
+                <li>Summarize the key findings from the reports.</li>
+                <li>What tables are included in the documents?</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+    
+    # Chat history container
+    chat_container = st.container()
+    
+    with chat_container:
+        # Display chat messages with enhanced styling
+        for i, msg in enumerate(st.session_state.messages):
+            if msg["role"] == "user":
+                st.markdown(f"""
+                <div class="chat-message user-message">
+                    <strong>You:</strong> {msg["content"]}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="chat-message assistant-message">
+                    <strong>Assistant:</strong> {msg["content"]}
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Chat input with enhanced styling
+    with st.container():
+        # Create a form for better control of the input
+        with st.form(key="chat_form", clear_on_submit=True):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                user_input = st.text_input("Ask a question about your documents:", key="user_input", label_visibility="collapsed")
+            with col2:
+                submit_button = st.form_submit_button("Send", type="primary")
+            
+            if submit_button and user_input:
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": user_input})
+                
+                # Display user message immediately
+                st.markdown(f"""
+                <div class="chat-message user-message">
+                    <strong>You:</strong> {user_input}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Generate and display assistant response
+                with st.spinner("Thinking..."):
+                    try:
+                        # Use consistent thread_id for conversation continuity
+                        config = {"configurable": {"thread_id": "streamlit_session"}}
+                        
+                        result = st.session_state.agent.invoke(
+                            {"messages": [{"role": "user", "content": user_input}]},
+                            config=config
+                        )
+                        
+                        # Extract response
+                        messages = result.get("messages", [])
+                        full_response = messages[-1].content if messages else "No response."
+                        
+                        # Add assistant message to chat history
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": full_response
+                        })
+                        
+                        # Display assistant response
+                        st.markdown(f"""
+                        <div class="chat-message assistant-message">
+                            <strong>Assistant:</strong> {full_response}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    except Exception as e:
+                        error_msg = f"Error: {str(e)}"
+                        st.markdown(f"""
+                        <div class="chat-message assistant-message">
+                            <strong>Assistant:</strong> {error_msg}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.error(f"Detailed error: {e}")
+                        logger.error(f"Chat error: {e}")
 
 def render_structure_viz():
     """Render enhanced document structure visualization."""
-    st.title("📊 Document Structure Analysis")
+    st.markdown('<h1 class="main-header">Document Structure Analysis</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Explore the structure and content of your documents</p>', unsafe_allow_html=True)
 
     if not st.session_state.docling_docs:
         st.info("👈 Please upload and process documents first!")
         return
 
+    # Document selector with enhanced UI
     doc_names = [doc["filename"] for doc in st.session_state.docling_docs]
     selected_doc_name = st.selectbox("Select document:", doc_names)
 
@@ -809,41 +1130,101 @@ def render_structure_viz():
         selected_doc_data.get("structured_content")
     )
 
+    # Create tabs with enhanced styling
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Overview", "📑 Summary", "🏗️ Hierarchy", "📊 Tables", "🖼️ Images"])
 
     with tab1:
-        st.subheader("Document Overview")
+        st.markdown('<h2 class="sub-header">Document Overview</h2>', unsafe_allow_html=True)
         stats = visualizer.get_content_statistics()
         
+        # Display metrics in a grid
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Pages", stats["summary"]["num_pages"])
-        col2.metric("Headings", stats["total_headings"])
-        col3.metric("Tables", stats["total_tables"])
-        col4.metric("Images", stats["total_images"])
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["summary"]["num_pages"]}</h3>
+                <p>Pages</p>
+            </div>
+            """, unsafe_allow_html=True)
         
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["total_headings"]}</h3>
+                <p>Headings</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["total_tables"]}</h3>
+                <p>Tables</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["total_images"]}</h3>
+                <p>Images</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Second row of metrics
         col5, col6, col7, col8 = st.columns(4)
-        col5.metric("Text Items", stats["summary"]["num_texts"])
-        col6.metric("Characters", f"{stats['summary']['total_characters']:,}")
-        col7.metric("Data Tables", stats["tables_with_data"])
-        col8.metric("Captioned Images", stats["images_with_captions"])
+        with col5:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["summary"]["num_texts"]}</h3>
+                <p>Text Items</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col6:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["summary"]["total_characters"]:,}</h3>
+                <p>Characters</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col7:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["tables_with_data"]}</h3>
+                <p>Data Tables</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col8:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{stats["images_with_captions"]}</h3>
+                <p>Captioned Images</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Content distribution
-        st.subheader("Content Distribution")
+        st.markdown('<h3 class="sub-header">Content Distribution</h3>', unsafe_allow_html=True)
         text_types_df = pd.DataFrame(
             [{"Type": k, "Count": v} for k, v in sorted(stats["summary"]["text_types"].items(), key=lambda x: -x[1])]
         )
         st.dataframe(text_types_df, use_container_width=True)
 
     with tab2:
+        st.markdown('<h2 class="sub-header">Document Summary</h2>', unsafe_allow_html=True)
         summary = visualizer.get_document_summary()
-        st.subheader("Detailed Summary")
         
+        # Display summary in an expandable JSON viewer
         st.json(summary, expanded=False)
 
     with tab3:
+        st.markdown('<h2 class="sub-header">Document Hierarchy</h2>', unsafe_allow_html=True)
         hierarchy = visualizer.get_document_hierarchy()
+        
         if hierarchy:
-            st.subheader("Document Hierarchy")
+            # Display hierarchy with indentation based on level
             for item in hierarchy:
                 indent = "  " * (item["level"] - 1)
                 emoji = "🔹" * min(item["level"], 3)
@@ -852,9 +1233,10 @@ def render_structure_viz():
             st.info("No hierarchical structure detected")
 
     with tab4:
+        st.markdown('<h2 class="sub-header">Document Tables</h2>', unsafe_allow_html=True)
         tables_info = visualizer.get_tables_info()
+        
         if tables_info:
-            st.subheader(f"Document Tables ({len(tables_info)} total)")
             for table_data in tables_info:
                 with st.expander(f"Table {table_data['table_number']} (Page {table_data['page']})", expanded=False):
                     if table_data.get("caption"):
@@ -869,9 +1251,10 @@ def render_structure_viz():
             st.info("No tables found")
 
     with tab5:
+        st.markdown('<h2 class="sub-header">Document Images</h2>', unsafe_allow_html=True)
         pictures_info = visualizer.get_pictures_info()
+        
         if pictures_info:
-            st.subheader(f"Document Images ({len(pictures_info)} total)")
             cols = st.columns(2)
             for idx, pic_data in enumerate(pictures_info):
                 col = cols[idx % 2]
@@ -891,52 +1274,16 @@ def render_structure_viz():
 
 def main():
     initialize_session_state()
+    
+    # Render the sidebar
     render_sidebar()
-    tab1, tab2 = st.tabs(["Chat", "Document Structure"])
-
+    
+    # Create main content area with tabs
+    tab1, tab2 = st.tabs(["💬 Chat", "📊 Document Structure"])
+    
     with tab1:
-        if not st.session_state.vectorstore:
-            st.info("Upload and process documents to start chatting!")
-        else:
-            # Optimized message display with container
-            chat_container = st.container()
-            with chat_container:
-                for i, msg in enumerate(st.session_state.messages):
-                    # Add unique key to prevent re-rendering of previous messages
-                    st.chat_message(msg["role"]).write(msg["content"])
-
-            if prompt := st.chat_input("Ask about your documents..."):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                st.chat_message("user").write(prompt)
-                
-                with st.chat_message("assistant"):
-                    response_placeholder = st.empty()
-                    
-                    try:
-                        with st.spinner("Thinking..."):
-                            # Critical: Use consistent thread_id for conversation continuity
-                            config = {"configurable": {"thread_id": "streamlit_session"}}
-                            
-                            result = st.session_state.agent.invoke(
-                                {"messages": [{"role": "user", "content": prompt}]},
-                                config=config
-                            )
-                            
-                            # Extract response
-                            messages = result.get("messages", [])
-                            full_response = messages[-1].content if messages else "No response."
-                            
-                            response_placeholder.markdown(full_response)
-                            st.session_state.messages.append({
-                                "role": "assistant", 
-                                "content": full_response
-                            })
-                            
-                    except Exception as e:
-                        error_msg = f"Error: {str(e)}"
-                        response_placeholder.markdown(error_msg)
-                        st.error(f"Detailed error: {e}")
-
+        render_chat_interface()
+    
     with tab2:
         render_structure_viz()
 
